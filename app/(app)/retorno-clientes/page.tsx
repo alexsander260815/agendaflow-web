@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { listarClientes, listarRetornosPendentes, marcarStatusRetorno } from "@/lib/repositories";
+import { buscarMeuSalao, listarClientes, listarRetornosPendentes, marcarStatusRetorno } from "@/lib/repositories";
 import { profissionaisVisiveisAgenda } from "@/lib/permissoes";
-import { montarMensagemRetorno } from "@/lib/mensagens";
+import { mensagemPadraoRetorno, montarMensagemRetorno } from "@/lib/mensagens";
 import { abrirWhatsApp } from "@/lib/whatsapp";
 import { Cliente, RetornoCliente } from "@/lib/types";
 
@@ -21,6 +21,7 @@ export default function RetornoClientesPage() {
   const { perfil } = useAuth();
   const [itens, setItens] = useState<RetornoItem[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [mensagemBase, setMensagemBase] = useState(mensagemPadraoRetorno());
 
   useEffect(() => {
     if (!perfil) return;
@@ -32,11 +33,13 @@ export default function RetornoClientesPage() {
     if (!perfil) return;
     setCarregando(true);
     try {
-      const [visiveis, retornos, clientes] = await Promise.all([
+      const [visiveis, retornos, clientes, salao] = await Promise.all([
         profissionaisVisiveisAgenda(perfil),
         listarRetornosPendentes(perfil.salao_id),
         listarClientes(perfil.salao_id),
+        buscarMeuSalao(perfil.salao_id),
       ]);
+      setMensagemBase(salao?.mensagem_retorno || mensagemPadraoRetorno());
 
       const clientesMap = new Map<string, Cliente>(clientes.map((c) => [c.id, c]));
       const agora = Date.now();
@@ -73,6 +76,7 @@ export default function RetornoClientesPage() {
 
   async function handleAvisar(item: RetornoItem) {
     const mensagem = montarMensagemRetorno(
+      mensagemBase,
       item.clienteNome,
       item.nomeServico,
       item.diasRestantes >= 0 ? 0 : -item.diasRestantes

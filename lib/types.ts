@@ -188,6 +188,7 @@ export interface Salao {
   acesso_liberado_manualmente: boolean;
   mensagem_remarcacao: string | null;
   mensagem_cancelamento: string | null;
+  mensagem_retorno: string | null;
 }
 
 export interface HorarioFuncionamento {

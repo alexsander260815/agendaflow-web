@@ -6,7 +6,14 @@ import { useAuth } from "@/lib/auth-context";
 import { buscarMeuSalao, atualizarSalao, listarHorarios, salvarHorario, deletarHorario } from "@/lib/repositories";
 import { enviarLogo } from "@/lib/repositories/logoRepository";
 import { Salao, HorarioFuncionamento } from "@/lib/types";
-import { mensagemPadraoCancelamento, mensagemPadraoConfirmacao, mensagemPadraoRemarcacao, substituirMarcadores } from "@/lib/mensagens";
+import {
+  mensagemPadraoCancelamento,
+  mensagemPadraoConfirmacao,
+  mensagemPadraoRemarcacao,
+  mensagemPadraoRetorno,
+  montarMensagemRetorno,
+  substituirMarcadores,
+} from "@/lib/mensagens";
 
 const DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const DURACOES = [15, 30, 45, 60, 90, 120];
@@ -262,6 +269,28 @@ export default function MeuNegocioPage() {
           padrao={mensagemPadraoCancelamento()}
           onMudar={(v) => atualizarCampo("mensagem_cancelamento", v)}
         />
+
+        <div className="card-elevated rounded-xl bg-surface p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm font-medium">Retorno de cliente</p>
+            <button
+              onClick={() => atualizarCampo("mensagem_retorno", mensagemPadraoRetorno())}
+              className="flex items-center gap-1 text-xs text-muted transition-colors hover:text-accent"
+            >
+              <RotateCcw size={11} /> Restaurar padrão
+            </button>
+          </div>
+          <p className="mb-2 text-xs text-muted">Marcadores: {"{nome}"}, {"{servico}"}, {"{dias}"}</p>
+          <textarea
+            value={salao.mensagem_retorno ?? mensagemPadraoRetorno()}
+            onChange={(e) => atualizarCampo("mensagem_retorno", e.target.value)}
+            rows={4}
+            className="w-full rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+          />
+          <p className="mt-2 whitespace-pre-line rounded-lg bg-surface-alt p-3 text-xs text-muted">
+            {montarMensagemRetorno(salao.mensagem_retorno ?? mensagemPadraoRetorno(), "Maria", "Manicure", 15)}
+          </p>
+        </div>
 
         {/* Horários */}
         <div className="mt-3 flex items-center gap-2">
