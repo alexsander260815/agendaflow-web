@@ -4,8 +4,11 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { buscarPerfil } from "@/lib/repositories/perfilRepository";
 import { souSuperAdmin as buscarSouSuperAdmin } from "@/lib/repositories/painelAdminRepository";
+import { buscarConvitePorCodigo } from "@/lib/repositories/conviteRepository";
 import { profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
 import { Perfil } from "@/lib/types";
+
+const URL_CONFIRMACAO = "https://agendaflow-web-six.vercel.app";
 
 interface AuthContextValue {
   perfil: Perfil | null;
@@ -13,6 +16,14 @@ interface AuthContextValue {
   mostrarFinanceiro: boolean;
   souSuperAdmin: boolean;
   login: (email: string, senha: string) => Promise<{ erro: string | null }>;
+  cadastrar: (email: string, senha: string, nomeUsuario: string, nomeSalao: string) => Promise<{ erro: string | null }>;
+  cadastrarComConvite: (
+    email: string,
+    senha: string,
+    nomeUsuario: string,
+    codigoConvite: string
+  ) => Promise<{ erro: string | null }>;
+  enviarEmailRecuperacaoSenha: (email: string) => Promise<{ erro: string | null }>;
   logout: () => Promise<void>;
   refrescarPerfil: () => Promise<void>;
 }
@@ -94,6 +105,70 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Cadastro criando um SALÃO NOVO (fluxo do Dono). O salão/perfil são
+  // criados automaticamente por um gatilho no banco, após confirmar o e-mail.
+  async function cadastrar(
+    email: string,
+    senha: string,
+    nomeUsuario: string,
+    nomeSalao: string
+  ): Promise<{ erro: string | null }> {
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password: senha,
+        options: {
+          emailRedirectTo: URL_CONFIRMACAO,
+          data: { tipo_cadastro: "SALAO_NOVO", nome_usuario: nomeUsuario, nome_salao: nomeSalao },
+        },
+      });
+      if (error) return { erro: `Erro ao criar conta: ${error.message}` };
+      return { erro: null };
+    } catch (e) {
+      const mensagem = e instanceof Error ? e.message : "Erro desconhecido";
+      return { erro: `Não foi possível conectar ao servidor. (${mensagem})` };
+    }
+  }
+
+  // Cadastro USANDO UM CONVITE (Admin/Profissional entrando num salão existente).
+  // O perfil é criado automaticamente por um gatilho no banco, após confirmar o e-mail.
+  async function cadastrarComConvite(
+    email: string,
+    senha: string,
+    nomeUsuario: string,
+    codigoConvite: string
+  ): Promise<{ erro: string | null }> {
+    try {
+      const convite = await buscarConvitePorCodigo(codigoConvite);
+      if (!convite) return { erro: "Código de convite inválido ou já utilizado." };
+
+      const { error } = await supabase.auth.signUp({
+        email,
+        password: senha,
+        options: {
+          emailRedirectTo: URL_CONFIRMACAO,
+          data: { tipo_cadastro: "CONVITE", nome_usuario: nomeUsuario, codigo_convite: codigoConvite },
+        },
+      });
+      if (error) return { erro: `Erro ao criar conta: ${error.message}` };
+      return { erro: null };
+    } catch (e) {
+      const mensagem = e instanceof Error ? e.message : "Erro desconhecido";
+      return { erro: `Não foi possível conectar ao servidor. (${mensagem})` };
+    }
+  }
+
+  async function enviarEmailRecuperacaoSenha(email: string): Promise<{ erro: string | null }> {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) return { erro: `Erro ao enviar e-mail: ${error.message}` };
+      return { erro: null };
+    } catch (e) {
+      const mensagem = e instanceof Error ? e.message : "Erro desconhecido";
+      return { erro: `Não foi possível conectar ao servidor. (${mensagem})` };
+    }
+  }
+
   async function logout() {
     await supabase.auth.signOut();
     setPerfil(null);
@@ -113,7 +188,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ perfil, carregando, mostrarFinanceiro, souSuperAdmin, login, logout, refrescarPerfil }}>
+    <AuthContext.Provider
+      value={{
+        perfil,
+        carregando,
+        mostrarFinanceiro,
+        souSuperAdmin,
+        login,
+        cadastrar,
+        cadastrarComConvite,
+        enviarEmailRecuperacaoSenha,
+        logout,
+        refrescarPerfil,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
