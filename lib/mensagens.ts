@@ -12,6 +12,11 @@ export function mensagemPadraoCancelamento(): string {
   return "Olá, {nome}! Infelizmente precisamos cancelar seu horário de {data} às {hora}. 😔\n\nEntre em contato com a gente pra remarcar quando for melhor pra você!";
 }
 
+export function montarMensagemRetorno(nomeCliente: string, nomeServico: string, dias: number): string {
+  const primeiroNome = nomeCliente.trim().split(" ")[0] ?? nomeCliente;
+  return `Oi ${primeiroNome}! Já faz ${dias} dias que você fez ${nomeServico} aqui — que tal agendar seu retorno? 💅`;
+}
+
 export function substituirMarcadores(
   mensagem: string,
   nomeCliente: string,

@@ -36,8 +36,10 @@ import {
   atualizarQuantidadeClientePacote,
   marcarComoDescontado,
 } from "@/lib/repositories";
+import { criarRetornoCliente } from "@/lib/repositories";
 import { Agendamento, AgendamentoServico, Cliente, ClientePacote, ItemComanda, Perfil, Servico } from "@/lib/types";
 import { converterIsoParaMillis, converterMillisParaIso, formatarMoeda, formatarStatus } from "@/lib/datetime";
+import { abrirWhatsApp } from "@/lib/whatsapp";
 
 const inputClass =
   "flex items-center gap-2.5 rounded-xl border border-border-subtle bg-surface px-4 py-3 transition-colors focus-within:border-accent";
@@ -98,6 +100,7 @@ function AgendamentoFormInner() {
   const [mostrarSeletorCliente, setMostrarSeletorCliente] = useState(false);
   const [mostrarSeletorServico, setMostrarSeletorServico] = useState(false);
   const [mostrarPagamento, setMostrarPagamento] = useState(false);
+  const [diasParaRetorno, setDiasParaRetorno] = useState("");
   const [mostrarExclusao, setMostrarExclusao] = useState(false);
   const [mensagemConflito, setMensagemConflito] = useState<string | null>(null);
   const [indiceEditandoPreco, setIndiceEditandoPreco] = useState<number | null>(null);
@@ -308,7 +311,7 @@ function AgendamentoFormInner() {
   }
 
   async function handleMarcarConcluido(formaPagamento: string) {
-    if (!agendamentoAtual || !agendamentoId) return;
+    if (!agendamentoAtual || !agendamentoId || !perfil) return;
     await atualizarAgendamento(agendamentoId, {
       ...agendamentoAtual,
       status: "CONCLUIDO",
@@ -325,6 +328,21 @@ function AgendamentoFormInner() {
         }
       }
     }
+
+    const dias = parseInt(diasParaRetorno, 10);
+    if (!isNaN(dias) && dias > 0) {
+      const dataRetornoMillis = converterIsoParaMillis(agendamentoAtual.data_hora) + dias * 24 * 60 * 60 * 1000;
+      await criarRetornoCliente({
+        salao_id: perfil.salao_id,
+        cliente_id: agendamentoAtual.cliente_id,
+        profissional_id: agendamentoAtual.profissional_id,
+        agendamento_id: agendamentoId,
+        nome_servico: itens.map((i) => i.nome_servico).join(", ") || "Atendimento",
+        data_retorno: converterMillisParaIso(dataRetornoMillis),
+        status: "PENDENTE",
+      });
+    }
+    setDiasParaRetorno("");
     setMostrarPagamento(false);
     router.push("/agenda");
   }
@@ -347,10 +365,6 @@ function AgendamentoFormInner() {
     router.push("/agenda");
   }
 
-  function abrirWhatsApp(telefone: string, mensagem: string) {
-    const numero = telefone.replace(/\D/g, "");
-    window.open(`https://wa.me/55${numero}?text=${encodeURIComponent(mensagem)}`, "_blank");
-  }
 
   const podeSalvar = clienteSelecionado !== null && itensComanda.length > 0;
 
@@ -619,6 +633,16 @@ function AgendamentoFormInner() {
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-5 backdrop-blur-sm">
           <div className="card-elevated w-full max-w-sm rounded-2xl bg-surface p-5">
             <p className="mb-3 font-medium">Forma de pagamento</p>
+
+            <input
+              type="number"
+              min={0}
+              value={diasParaRetorno}
+              onChange={(e) => setDiasParaRetorno(e.target.value.replace(/\D/g, ""))}
+              placeholder="Retorno em quantos dias? (opcional)"
+              className="mb-3 w-full rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+
             <div className="flex flex-col gap-1">
               {[
                 { valor: "DINHEIRO", label: "Dinheiro" },
@@ -635,7 +659,10 @@ function AgendamentoFormInner() {
               ))}
             </div>
             <button
-              onClick={() => setMostrarPagamento(false)}
+              onClick={() => {
+                setMostrarPagamento(false);
+                setDiasParaRetorno("");
+              }}
               className="mt-3 w-full rounded-lg border border-border-subtle py-2 text-sm transition-colors hover:bg-surface-alt"
             >
               Cancelar

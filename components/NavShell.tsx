@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BarChart3,
+  BellRing,
   Boxes,
   Building2,
   CalendarDays,
@@ -23,12 +24,14 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import Avatar from "@/components/Avatar";
+import { listarMensagensSuporte } from "@/lib/repositories";
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
   donoOnly?: boolean;
+  badge?: number;
 }
 
 const ITENS_PRINCIPAIS: NavItem[] = [
@@ -39,6 +42,7 @@ const ITENS_PRINCIPAIS: NavItem[] = [
 
 const ITENS_SECUNDARIOS: NavItem[] = [
   { href: "/servicos", label: "Serviços", icon: Scissors },
+  { href: "/retorno-clientes", label: "Retorno de Clientes", icon: BellRing },
   { href: "/financeiro", label: "Financeiro", icon: Wallet },
   { href: "/estoque", label: "Estoque", icon: Boxes, donoOnly: true },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3, donoOnly: true },
@@ -56,10 +60,18 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [mostrarMais, setMostrarMais] = useState(false);
+  const [contagemSuporte, setContagemSuporte] = useState(0);
 
   useEffect(() => {
     setMostrarMais(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!souSuperAdmin) return;
+    listarMensagensSuporte()
+      .then((mensagens) => setContagemSuporte(mensagens.filter((m) => m.status === "ABERTO").length))
+      .catch(() => setContagemSuporte(0));
+  }, [souSuperAdmin]);
 
   useEffect(() => {
     if (!carregando && !perfil) {
@@ -81,7 +93,10 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
     return true;
   };
 
-  const secundariosVisiveis = [...ITENS_SECUNDARIOS.filter(podeVer), ...(souSuperAdmin ? [ITEM_PAINEL_ADMIN] : [])];
+  const secundariosVisiveis = [
+    ...ITENS_SECUNDARIOS.filter(podeVer),
+    ...(souSuperAdmin ? [{ ...ITEM_PAINEL_ADMIN, badge: contagemSuporte > 0 ? contagemSuporte : undefined }] : []),
+  ];
 
   async function handleLogout() {
     await logout();
@@ -167,6 +182,11 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
                   >
                     <Icone size={19} />
                     {item.label}
+                    {!!item.badge && (
+                      <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-[11px] font-semibold text-white">
+                        {item.badge}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
@@ -196,6 +216,11 @@ function NavLink({ item, ativo }: { item: NavItem; ativo: boolean }) {
     >
       <Icone size={19} strokeWidth={ativo ? 2.4 : 2} />
       {item.label}
+      {!!item.badge && (
+        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-[11px] font-semibold text-white">
+          {item.badge}
+        </span>
+      )}
     </Link>
   );
 }

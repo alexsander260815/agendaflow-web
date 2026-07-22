@@ -74,6 +74,18 @@ export interface AgendamentoServico {
   comissao_fechada: boolean;
 }
 
+export interface RetornoCliente {
+  id: string;
+  salao_id: string;
+  cliente_id: string;
+  profissional_id: string | null;
+  agendamento_id: string | null;
+  nome_servico: string;
+  data_retorno: string;
+  status: "PENDENTE" | "AVISADO" | "CONCLUIDO";
+  criado_em: string;
+}
+
 export interface PermissoesUsuario {
   id?: string;
   salao_id: string;
