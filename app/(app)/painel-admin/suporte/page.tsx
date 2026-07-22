@@ -6,6 +6,7 @@ import Link from "next/link";
 import { atualizarStatusSuporte, listarMensagensSuporte } from "@/lib/repositories";
 import { SuporteMensagemPainel } from "@/lib/types";
 import { formatarDataHora } from "@/lib/datetime";
+import { abrirWhatsApp } from "@/lib/whatsapp";
 
 const COR_STATUS: Record<string, string> = {
   ABERTO: "bg-amber-400/12 text-amber-400",
@@ -69,7 +70,20 @@ export default function SuporteAdminPage() {
               </div>
               <p className="mt-2 text-sm">{m.mensagem}</p>
               {m.status !== "FECHADO" && (
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(m.whatsapp || m.celularUnidade) && (
+                    <button
+                      onClick={() =>
+                        abrirWhatsApp(
+                          (m.whatsapp || m.celularUnidade) as string,
+                          `Oi ${m.remetenteNome}! Vi sua mensagem no suporte do AgendaFlow: "${m.mensagem}"`
+                        )
+                      }
+                      className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground transition-opacity hover:opacity-90"
+                    >
+                      Responder no WhatsApp
+                    </button>
+                  )}
                   {m.status !== "RESPONDIDO" && (
                     <button
                       onClick={() => handleAtualizarStatus(m.id, "RESPONDIDO")}

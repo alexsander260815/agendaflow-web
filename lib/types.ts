@@ -244,7 +244,10 @@ export interface SalaoPainel {
 
 export interface SuporteMensagemPainel {
   id: string;
+  salaoId?: string;
   nomeSalao: string;
+  whatsapp?: string | null;
+  celularUnidade?: string | null;
   remetenteNome: string;
   mensagem: string;
   status: string;

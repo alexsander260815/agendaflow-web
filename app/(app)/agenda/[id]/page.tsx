@@ -331,16 +331,20 @@ function AgendamentoFormInner() {
 
     const dias = parseInt(diasParaRetorno, 10);
     if (!isNaN(dias) && dias > 0) {
-      const dataRetornoMillis = converterIsoParaMillis(agendamentoAtual.data_hora) + dias * 24 * 60 * 60 * 1000;
-      await criarRetornoCliente({
-        salao_id: perfil.salao_id,
-        cliente_id: agendamentoAtual.cliente_id,
-        profissional_id: agendamentoAtual.profissional_id,
-        agendamento_id: agendamentoId,
-        nome_servico: itens.map((i) => i.nome_servico).join(", ") || "Atendimento",
-        data_retorno: converterMillisParaIso(dataRetornoMillis),
-        status: "PENDENTE",
-      });
+      try {
+        const dataRetornoMillis = converterIsoParaMillis(agendamentoAtual.data_hora) + dias * 24 * 60 * 60 * 1000;
+        await criarRetornoCliente({
+          salao_id: perfil.salao_id,
+          cliente_id: agendamentoAtual.cliente_id,
+          profissional_id: agendamentoAtual.profissional_id,
+          agendamento_id: agendamentoId,
+          nome_servico: itens.map((i) => i.nome_servico).join(", ") || "Atendimento",
+          data_retorno: converterMillisParaIso(dataRetornoMillis),
+          status: "PENDENTE",
+        });
+      } catch {
+        // se o retorno não conseguir ser salvo, não trava a conclusão do agendamento
+      }
     }
     setDiasParaRetorno("");
     setMostrarPagamento(false);

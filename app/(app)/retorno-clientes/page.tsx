@@ -64,6 +64,8 @@ export default function RetornoClientesPage() {
         .sort((a, b) => a.dataRetornoMillis - b.dataRetornoMillis);
 
       setItens(resultado);
+    } catch {
+      setItens([]);
     } finally {
       setCarregando(false);
     }
