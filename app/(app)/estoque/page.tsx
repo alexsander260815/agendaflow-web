@@ -338,9 +338,13 @@ function FormularioProdutoModal({
   onSalvar: (dados: { nome: string; quantidadeInicial: number; preco: number; minimo: number }) => void;
 }) {
   const [nome, setNome] = useState(produto?.nome ?? "");
-  const [quantidadeInicial, setQuantidadeInicial] = useState("0");
+  const [quantidadeInicial, setQuantidadeInicial] = useState("");
   const [preco, setPreco] = useState(produto ? String(produto.preco) : "");
-  const [minimo, setMinimo] = useState(produto ? String(produto.minimo) : "1");
+  const [minimo, setMinimo] = useState(produto ? String(produto.minimo) : "");
+
+  function selecionarTudo(e: React.FocusEvent<HTMLInputElement>) {
+    e.target.select();
+  }
 
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-5 backdrop-blur-sm">
@@ -362,6 +366,8 @@ function FormularioProdutoModal({
             <input
               value={quantidadeInicial}
               onChange={(e) => setQuantidadeInicial(e.target.value.replace(/\D/g, ""))}
+              onFocus={selecionarTudo}
+              inputMode="numeric"
               placeholder="Quantidade inicial"
               className="rounded-xl border border-border-subtle bg-background px-3.5 py-2.5 outline-none focus:border-accent"
             />
@@ -369,12 +375,16 @@ function FormularioProdutoModal({
           <input
             value={preco}
             onChange={(e) => setPreco(e.target.value.replace(/[^0-9.]/g, ""))}
+            onFocus={selecionarTudo}
+            inputMode="decimal"
             placeholder="Preço (ex: 25.00)"
             className="rounded-xl border border-border-subtle bg-background px-3.5 py-2.5 outline-none focus:border-accent"
           />
           <input
             value={minimo}
             onChange={(e) => setMinimo(e.target.value.replace(/\D/g, ""))}
+            onFocus={selecionarTudo}
+            inputMode="numeric"
             placeholder="Estoque mínimo"
             className="rounded-xl border border-border-subtle bg-background px-3.5 py-2.5 outline-none focus:border-accent"
           />
