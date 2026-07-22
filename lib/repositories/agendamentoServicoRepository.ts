@@ -37,6 +37,14 @@ export async function marcarComoDescontado(itemId: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function marcarComissaoFechada(itemId: string): Promise<void> {
+  const { error } = await supabase
+    .from("agendamento_servicos")
+    .update({ comissao_fechada: true })
+    .eq("id", itemId);
+  if (error) throw error;
+}
+
 export async function deletarItensPorAgendamento(agendamentoId: string): Promise<void> {
   const { error } = await supabase.from("agendamento_servicos").delete().eq("agendamento_id", agendamentoId);
   if (error) throw error;

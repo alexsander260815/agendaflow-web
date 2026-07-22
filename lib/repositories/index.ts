@@ -6,3 +6,8 @@ export * from "./agendamentoRepository";
 export * from "./agendamentoServicoRepository";
 export * from "./perfilRepository";
 export * from "./permissoesRepository";
+export * from "./produtoRepository";
+export * from "./movimentacaoEstoqueRepository";
+export * from "./servicoProdutoRepository";
+export * from "./fechamentoComissaoRepository";
+export * from "./fotoPerfilRepository";

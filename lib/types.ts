@@ -103,3 +103,42 @@ export interface ItemComanda {
   clientePacoteId: string | null;
   precoCobrado: number;
 }
+
+export type TipoMovimentacao = "ENTRADA" | "VENDA" | "CONSUMO" | "AJUSTE";
+
+export interface Produto {
+  id: string;
+  salao_id: string;
+  nome: string;
+  unidade: string;
+  preco: number;
+  saldo: number;
+  minimo: number;
+}
+
+export interface MovimentacaoEstoque {
+  id: string;
+  salao_id: string;
+  produto_id: string;
+  tipo: TipoMovimentacao;
+  quantidade: number;
+  observacao: string;
+  criado_em?: string;
+}
+
+export interface ServicoProduto {
+  id: string;
+  salao_id: string;
+  servico_id: string;
+  produto_id: string;
+  quantidade_consumida: number;
+}
+
+export interface FechamentoComissao {
+  id: string;
+  salao_id: string;
+  profissional_id: string;
+  data_inicio: string;
+  data_fim: string;
+  valor_total: number;
+}

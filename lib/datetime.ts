@@ -48,6 +48,33 @@ export function labelDiaCurto(millis: number): string {
   return DIAS_SEMANA[new Date(millis).getDay()];
 }
 
+export type PeriodoRapido = "ESTE_MES" | "ULTIMO_MES" | "ULTIMOS_7_DIAS";
+
+export function intervaloPeriodoRapido(periodo: PeriodoRapido, agora: number = Date.now()): [number, number] {
+  const d = new Date(agora);
+  if (periodo === "ESTE_MES") {
+    const inicio = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+    return [inicio.getTime(), fimDoDia(agora)];
+  }
+  if (periodo === "ULTIMO_MES") {
+    const inicio = new Date(d.getFullYear(), d.getMonth() - 1, 1, 0, 0, 0, 0);
+    const fim = new Date(d.getFullYear(), d.getMonth(), 0, 23, 59, 59, 999);
+    return [inicio.getTime(), fim.getTime()];
+  }
+  // ULTIMOS_7_DIAS
+  const inicio = inicioDoDia(agora - 7 * 24 * 60 * 60 * 1000);
+  return [inicio, fimDoDia(agora)];
+}
+
+export function janelaUltimosDias(dias: number, agora: number = Date.now()): [number, number] {
+  return [agora - dias * 24 * 60 * 60 * 1000, agora];
+}
+
+export function formatarData(millis: number): string {
+  const d = new Date(millis);
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+}
+
 export function formatarStatus(status: string): string {
   switch (status) {
     case "CONCLUIDO":

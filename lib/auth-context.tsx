@@ -12,6 +12,7 @@ interface AuthContextValue {
   mostrarFinanceiro: boolean;
   login: (email: string, senha: string) => Promise<{ erro: string | null }>;
   logout: () => Promise<void>;
+  refrescarPerfil: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -91,8 +92,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     perfilJaCarregado.current = false;
   }
 
+  async function refrescarPerfil() {
+    if (!perfil) return;
+    try {
+      const p = await buscarPerfil(perfil.id);
+      if (p) setPerfil(p);
+    } catch {
+      // mantém o perfil atual se a atualização falhar
+    }
+  }
+
   return (
-    <AuthContext.Provider value={{ perfil, carregando, mostrarFinanceiro, login, logout }}>
+    <AuthContext.Provider value={{ perfil, carregando, mostrarFinanceiro, login, logout, refrescarPerfil }}>
       {children}
     </AuthContext.Provider>
   );

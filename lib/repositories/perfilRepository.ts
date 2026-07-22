@@ -12,3 +12,8 @@ export async function buscarPerfil(id: string): Promise<Perfil | null> {
   if (error) throw error;
   return data as Perfil | null;
 }
+
+export async function definirAtendeClientes(perfilId: string, valor: boolean): Promise<void> {
+  const { error } = await supabase.from("perfis").update({ atende_clientes: valor }).eq("id", perfilId);
+  if (error) throw error;
+}

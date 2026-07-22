@@ -2,14 +2,19 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
+  BarChart3,
+  Boxes,
   CalendarDays,
   LayoutGrid,
   LogOut,
+  Menu,
   Scissors,
+  User,
   Users,
   Wallet,
+  X,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { corAvatar, iniciais } from "@/lib/avatar";
@@ -18,12 +23,32 @@ interface NavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+  donoOnly?: boolean;
 }
+
+const ITENS_PRINCIPAIS: NavItem[] = [
+  { href: "/", label: "Início", icon: LayoutGrid },
+  { href: "/agenda", label: "Agenda", icon: CalendarDays },
+  { href: "/clientes", label: "Clientes", icon: Users },
+];
+
+const ITENS_SECUNDARIOS: NavItem[] = [
+  { href: "/servicos", label: "Serviços", icon: Scissors },
+  { href: "/financeiro", label: "Financeiro", icon: Wallet, donoOnly: false },
+  { href: "/estoque", label: "Estoque", icon: Boxes, donoOnly: true },
+  { href: "/relatorios", label: "Relatórios", icon: BarChart3, donoOnly: true },
+  { href: "/perfil", label: "Meu Perfil", icon: User },
+];
 
 export default function NavShell({ children }: { children: React.ReactNode }) {
   const { perfil, carregando, mostrarFinanceiro, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const [mostrarMais, setMostrarMais] = useState(false);
+
+  useEffect(() => {
+    setMostrarMais(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!carregando && !perfil) {
@@ -39,14 +64,14 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const items: NavItem[] = [
-    { href: "/", label: "Início", icon: LayoutGrid },
-    { href: "/agenda", label: "Agenda", icon: CalendarDays },
-    { href: "/clientes", label: "Clientes", icon: Users },
-    { href: "/servicos", label: "Serviços", icon: Scissors },
-    ...(mostrarFinanceiro ? [{ href: "/financeiro", label: "Financeiro", icon: Wallet }] : []),
-  ];
+  const podeVer = (item: NavItem) => {
+    if (item.href === "/financeiro") return mostrarFinanceiro;
+    if (item.donoOnly) return perfil.papel === "DONO";
+    return true;
+  };
 
+  const secundariosVisiveis = ITENS_SECUNDARIOS.filter(podeVer);
+  const todosItens = [...ITENS_PRINCIPAIS, ...secundariosVisiveis];
   const avatar = corAvatar(perfil.nome);
 
   async function handleLogout() {
@@ -64,25 +89,14 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
           </div>
           <span className="font-semibold tracking-tight">AgendaFlow</span>
         </div>
-        <nav className="flex flex-1 flex-col gap-1 px-3">
-          {items.map((item) => {
-            const ativo = pathname === item.href;
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`group flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition-colors ${
-                  ativo
-                    ? "bg-accent/12 font-medium text-accent"
-                    : "text-muted hover:bg-surface-alt hover:text-foreground"
-                }`}
-              >
-                <Icon size={19} strokeWidth={ativo ? 2.4 : 2} />
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3">
+          {ITENS_PRINCIPAIS.map((item) => (
+            <NavLink key={item.href} item={item} ativo={pathname === item.href} />
+          ))}
+          {secundariosVisiveis.length > 0 && <div className="my-2 border-t border-border-subtle" />}
+          {secundariosVisiveis.map((item) => (
+            <NavLink key={item.href} item={item} ativo={pathname === item.href} />
+          ))}
         </nav>
         <div className="flex items-center gap-3 border-t border-border-subtle px-4 py-4">
           <div
@@ -110,23 +124,89 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
 
       {/* Bottom tabs mobile */}
       <nav className="fixed bottom-0 left-0 right-0 z-20 flex border-t border-border-subtle bg-surface/95 backdrop-blur-md md:hidden">
-        {items.map((item) => {
-          const ativo = pathname === item.href;
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] transition-colors ${
-                ativo ? "text-accent" : "text-muted"
-              }`}
-            >
-              <Icon size={21} strokeWidth={ativo ? 2.4 : 2} />
-              {item.label}
-            </Link>
-          );
-        })}
+        {ITENS_PRINCIPAIS.map((item) => (
+          <TabLink key={item.href} item={item} ativo={pathname === item.href} />
+        ))}
+        <button
+          onClick={() => setMostrarMais(true)}
+          className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] transition-colors ${
+            mostrarMais || secundariosVisiveis.some((i) => i.href === pathname) ? "text-accent" : "text-muted"
+          }`}
+        >
+          <Menu size={21} />
+          Mais
+        </button>
       </nav>
+
+      {mostrarMais && (
+        <div className="fixed inset-0 z-30 flex items-end bg-black/60 backdrop-blur-sm md:hidden" onClick={() => setMostrarMais(false)}>
+          <div
+            className="w-full rounded-t-2xl bg-surface p-3 pb-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-2 flex items-center justify-between px-2 py-2">
+              <span className="text-sm font-medium text-muted">Mais opções</span>
+              <button onClick={() => setMostrarMais(false)} className="text-muted">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex flex-col gap-1">
+              {secundariosVisiveis.map((item) => {
+                const Icone = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm ${
+                      pathname === item.href ? "bg-accent/12 font-medium text-accent" : ""
+                    }`}
+                  >
+                    <Icone size={19} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-danger"
+              >
+                <LogOut size={19} />
+                Sair
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function NavLink({ item, ativo }: { item: NavItem; ativo: boolean }) {
+  const Icone = item.icon;
+  return (
+    <Link
+      href={item.href}
+      className={`group flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition-colors ${
+        ativo ? "bg-accent/12 font-medium text-accent" : "text-muted hover:bg-surface-alt hover:text-foreground"
+      }`}
+    >
+      <Icone size={19} strokeWidth={ativo ? 2.4 : 2} />
+      {item.label}
+    </Link>
+  );
+}
+
+function TabLink({ item, ativo }: { item: NavItem; ativo: boolean }) {
+  const Icone = item.icon;
+  return (
+    <Link
+      href={item.href}
+      className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] transition-colors ${
+        ativo ? "text-accent" : "text-muted"
+      }`}
+    >
+      <Icone size={21} strokeWidth={ativo ? 2.4 : 2} />
+      {item.label}
+    </Link>
   );
 }
