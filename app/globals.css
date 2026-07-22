@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+:root {
+  /* Paleta exata do app Android (ui/theme/Color.kt) */
+  --background: #0b1930; /* NavyProfundo */
+  --surface: #12233f; /* NavySuperficie */
+  --surface-alt: #1b3153; /* NavySuperficieAlta */
+  --foreground: #f0f6f8; /* TextoSobreNavy */
+  --muted: #9fb3c8;
+  --border-subtle: #24395c;
+  --accent: #17c3b2; /* Turquesa */
+  --accent-light: #5eead4; /* TurquesaClara */
+  --accent-dark: #0e7490; /* TurquesaEscura */
+  --accent-foreground: #06251f;
+  --danger: #f87171;
+  --shadow-color: 8 20 45;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border-subtle: var(--border-subtle);
+  --color-accent: var(--accent);
+  --color-accent-light: var(--accent-light);
+  --color-accent-dark: var(--accent-dark);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Elevação sutil pros cards, no espírito das superfícies tonais do Material3 */
+.card-elevated {
+  box-shadow:
+    0 1px 2px rgba(var(--shadow-color) / 0.4),
+    0 4px 16px -4px rgba(var(--shadow-color) / 0.5);
+}
+
+.gradient-accent {
+  background: linear-gradient(135deg, rgba(23, 195, 178, 0.16), rgba(11, 25, 48, 0));
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+* {
+  scrollbar-color: var(--surface-alt) transparent;
+}
