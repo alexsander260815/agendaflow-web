@@ -11,6 +11,7 @@ import { converterIsoParaMillis, intervaloPeriodoRapido, PeriodoRapido } from "@
 
 export interface ReceitaPorProfissional {
   nomeProfissional: string;
+  fotoUrl: string | null;
   quantidade: number;
   receitaTotal: number;
 }
@@ -45,7 +46,7 @@ export async function carregarReceitas(perfil: Perfil, periodo: PeriodoRapido): 
     profissionaisVisiveisFinanceiro(perfil),
   ]);
 
-  const equipeMap = new Map(equipe.map((p) => [p.id, p.nome]));
+  const equipeMap = new Map(equipe.map((p) => [p.id, p]));
   const itensPorAgendamento = new Map<string, AgendamentoServico[]>();
   itens.forEach((i) => {
     const lista = itensPorAgendamento.get(i.agendamento_id) ?? [];
@@ -68,8 +69,9 @@ export async function carregarReceitas(perfil: Perfil, periodo: PeriodoRapido): 
   const porProfissionalMap = new Map<string, ReceitaPorProfissional>();
   base.forEach((a) => {
     const chave = a.profissional_id ?? "sem_profissional";
-    const nome = a.profissional_id ? equipeMap.get(a.profissional_id) ?? "Não atribuído" : "Não atribuído";
-    const atual = porProfissionalMap.get(chave) ?? { nomeProfissional: nome, quantidade: 0, receitaTotal: 0 };
+    const prof = a.profissional_id ? equipeMap.get(a.profissional_id) : undefined;
+    const nome = prof?.nome ?? "Não atribuído";
+    const atual = porProfissionalMap.get(chave) ?? { nomeProfissional: nome, fotoUrl: prof?.foto_url ?? null, quantidade: 0, receitaTotal: 0 };
     atual.quantidade += 1;
     atual.receitaTotal += totalItens(a.id);
     porProfissionalMap.set(chave, atual);

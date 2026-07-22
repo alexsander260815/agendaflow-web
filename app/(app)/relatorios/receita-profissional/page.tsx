@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { RelatorioHeader, PeriodoChips } from "@/components/RelatorioHeader";
 import { carregarReceitas, ReceitaPorProfissional } from "@/lib/relatorios";
-import { corAvatar, iniciais } from "@/lib/avatar";
+import Avatar from "@/components/Avatar";
 import { formatarMoeda, PeriodoRapido } from "@/lib/datetime";
 
 export default function ReceitaPorProfissionalPage() {
@@ -46,15 +46,9 @@ export default function ReceitaPorProfissionalPage() {
       ) : (
         <div className="flex flex-col gap-2">
           {linhas.map((l, i) => {
-            const avatar = corAvatar(l.nomeProfissional);
             return (
               <div key={i} className="card-elevated flex items-center gap-3 rounded-xl bg-surface p-4">
-                <div
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-                  style={{ background: avatar.bg, color: avatar.fg }}
-                >
-                  {iniciais(l.nomeProfissional)}
-                </div>
+                <Avatar nome={l.nomeProfissional} fotoUrl={l.fotoUrl} className="h-10 w-10 text-sm" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{l.nomeProfissional}</p>
                   <p className="text-sm text-muted">{l.quantidade} atendimento(s)</p>

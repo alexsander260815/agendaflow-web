@@ -5,7 +5,7 @@ import { ChevronDown, Wallet } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { listarAgendamentoServicos, listarAgendamentos, listarEquipe } from "@/lib/repositories";
 import { profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
-import { corAvatar, iniciais } from "@/lib/avatar";
+import Avatar from "@/components/Avatar";
 import { Agendamento, AgendamentoServico } from "@/lib/types";
 import { converterIsoParaMillis, formatarMoeda } from "@/lib/datetime";
 
@@ -24,6 +24,7 @@ interface DetalhePagamento {
 
 interface ResumoPorProfissional {
   nomeProfissional: string;
+  fotoUrl: string | null;
   quantidadeAtendimentos: number;
   faturamentoTotal: number;
   porServico: DetalheServico[];
@@ -85,7 +86,7 @@ export default function FinanceiroPage() {
         profissionaisVisiveisFinanceiro(perfil),
       ]);
 
-      const equipeMap = new Map(equipe.map((p) => [p.id, p.nome]));
+      const equipeMap = new Map(equipe.map((p) => [p.id, p]));
       const itensPorAgendamento = new Map<string, AgendamentoServico[]>();
       todosItens.forEach((i) => {
         const lista = itensPorAgendamento.get(i.agendamento_id) ?? [];
@@ -113,7 +114,8 @@ export default function FinanceiroPage() {
 
       const resumosCalculados: ResumoPorProfissional[] = Array.from(porProfissional.entries())
         .map(([profissionalId, lista]) => {
-          const nome = profissionalId === "sem_profissional" ? "Não atribuído" : equipeMap.get(profissionalId) ?? "Não atribuído";
+          const prof = profissionalId === "sem_profissional" ? undefined : equipeMap.get(profissionalId);
+          const nome = prof?.nome ?? "Não atribuído";
           const itensDoProfissional = lista.flatMap((a) => itensPorAgendamento.get(a.id) ?? []);
           const totalProfissional = itensDoProfissional.reduce((soma, i) => soma + i.preco, 0);
 
@@ -134,6 +136,7 @@ export default function FinanceiroPage() {
 
           return {
             nomeProfissional: nome,
+            fotoUrl: prof?.foto_url ?? null,
             quantidadeAtendimentos: lista.length,
             faturamentoTotal: totalProfissional,
             porServico: Array.from(porServicoMap.values()).sort((a, b) => b.total - a.total),
@@ -195,7 +198,6 @@ export default function FinanceiroPage() {
       ) : (
         <div className="flex flex-col gap-2">
           {resumos.map((r, i) => {
-            const avatar = corAvatar(r.nomeProfissional);
             const aberto = expandido === i;
             return (
               <div key={i} className="card-elevated rounded-xl bg-surface p-4">
@@ -203,12 +205,7 @@ export default function FinanceiroPage() {
                   onClick={() => setExpandido(aberto ? null : i)}
                   className="flex w-full items-center gap-3"
                 >
-                  <div
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-                    style={{ background: avatar.bg, color: avatar.fg }}
-                  >
-                    {iniciais(r.nomeProfissional)}
-                  </div>
+                  <Avatar nome={r.nomeProfissional} fotoUrl={r.fotoUrl} className="h-10 w-10 text-sm" />
                   <div className="min-w-0 flex-1 text-left">
                     <p className="truncate font-medium">{r.nomeProfissional}</p>
                     <p className="text-sm text-muted">{r.quantidadeAtendimentos} atendimento(s)</p>

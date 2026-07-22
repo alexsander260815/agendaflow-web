@@ -11,7 +11,7 @@ import {
   listarPlanos,
 } from "@/lib/repositories";
 import { Perfil } from "@/lib/types";
-import { corAvatar, iniciais } from "@/lib/avatar";
+import Avatar from "@/components/Avatar";
 
 export default function EquipePage() {
   const { perfil } = useAuth();
@@ -124,19 +124,13 @@ export default function EquipePage() {
       ) : (
         <div className="flex flex-col gap-2">
           {equipe.map((p) => {
-            const avatar = corAvatar(p.nome);
             return (
               <Link
                 key={p.id}
                 href={`/equipe/${p.id}`}
                 className="card-elevated flex items-center gap-3 rounded-xl bg-surface p-4 transition-colors hover:bg-surface-alt"
               >
-                <div
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-                  style={{ background: avatar.bg, color: avatar.fg }}
-                >
-                  {iniciais(p.nome)}
-                </div>
+                <Avatar nome={p.nome} fotoUrl={p.foto_url} className="h-10 w-10 text-sm" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{p.nome}</p>
                   <p className="text-xs text-muted">{p.papel}</p>

@@ -8,7 +8,7 @@ import { listarAgendamentoServicos } from "@/lib/repositories/agendamentoServico
 import { listarClientes } from "@/lib/repositories/clienteRepository";
 import { listarEquipe } from "@/lib/repositories/perfilRepository";
 import { profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
-import { corAvatar, iniciais } from "@/lib/avatar";
+import Avatar from "@/components/Avatar";
 import { Agendamento, AgendamentoServico } from "@/lib/types";
 import {
   converterIsoParaMillis,
@@ -30,6 +30,7 @@ interface AgendamentoDeHoje {
 
 interface TopProfissional {
   nome: string;
+  fotoUrl: string | null;
   atendimentos: number;
   faturamento: number;
 }
@@ -70,7 +71,7 @@ export default function DashboardPage() {
       ]);
 
       const clientesMap = new Map(clientes.map((c) => [c.id, c.nome]));
-      const equipeMap = new Map(equipe.map((p) => [p.id, p.nome]));
+      const equipeMap = new Map(equipe.map((p) => [p.id, p]));
       const itensPorAgendamento = new Map<string, AgendamentoServico[]>();
       todosItens.forEach((item) => {
         const lista = itensPorAgendamento.get(item.agendamento_id) ?? [];
@@ -137,11 +138,15 @@ export default function DashboardPage() {
       });
 
       const top = Array.from(porProfissional.entries())
-        .map(([id, lista]) => ({
-          nome: id === "sem_profissional" ? "Não atribuído" : equipeMap.get(id) ?? "Não atribuído",
-          atendimentos: lista.length,
-          faturamento: lista.reduce((soma, a) => soma + totalItens(a), 0),
-        }))
+        .map(([id, lista]) => {
+          const prof = id === "sem_profissional" ? undefined : equipeMap.get(id);
+          return {
+            nome: prof?.nome ?? "Não atribuído",
+            fotoUrl: prof?.foto_url ?? null,
+            atendimentos: lista.length,
+            faturamento: lista.reduce((soma, a) => soma + totalItens(a), 0),
+          };
+        })
         .sort((a, b) => b.faturamento - a.faturamento)
         .slice(0, 5);
 
@@ -256,15 +261,9 @@ export default function DashboardPage() {
               ) : (
                 <div className="flex flex-col gap-3">
                   {topProfissionais.map((p, i) => {
-                    const avatar = corAvatar(p.nome);
                     return (
                       <div key={i} className="flex items-center gap-3">
-                        <div
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-                          style={{ background: avatar.bg, color: avatar.fg }}
-                        >
-                          {iniciais(p.nome)}
-                        </div>
+                        <Avatar nome={p.nome} fotoUrl={p.fotoUrl} className="h-9 w-9 text-xs" />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium">{p.nome}</p>
                           <p className="text-xs text-muted">{p.atendimentos} atendimento(s)</p>

@@ -12,7 +12,7 @@ import {
   listarServicos,
 } from "@/lib/repositories";
 import { profissionaisVisiveisAgenda } from "@/lib/permissoes";
-import { corAvatar, iniciais } from "@/lib/avatar";
+import Avatar from "@/components/Avatar";
 import { Agendamento, AgendamentoServico, Perfil } from "@/lib/types";
 import { converterIsoParaMillis, inicioDoDia } from "@/lib/datetime";
 
@@ -159,7 +159,6 @@ export default function AgendaPage() {
 
       <div className="mb-5 flex gap-3 overflow-x-auto pb-1">
         {equipe.map((p) => {
-          const avatar = corAvatar(p.nome);
           const ativo = profissionalSelecionadoId === p.id;
           return (
             <button
@@ -167,14 +166,13 @@ export default function AgendaPage() {
               onClick={() => setProfissionalSelecionadoId(p.id)}
               className="flex shrink-0 flex-col items-center gap-1.5"
             >
-              <div
-                className={`flex h-12 w-12 items-center justify-center rounded-full text-sm font-semibold transition-all ${
+              <Avatar
+                nome={p.nome}
+                fotoUrl={p.foto_url}
+                className={`h-12 w-12 text-sm transition-all ${
                   ativo ? "ring-2 ring-accent ring-offset-2 ring-offset-background" : "opacity-70"
                 }`}
-                style={{ background: avatar.bg, color: avatar.fg }}
-              >
-                {iniciais(p.nome)}
-              </div>
+              />
               <span className={`text-xs ${ativo ? "font-medium text-accent" : "text-muted"}`}>
                 {p.nome.split(" ")[0]}
               </span>

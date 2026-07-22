@@ -22,7 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { corAvatar, iniciais } from "@/lib/avatar";
+import Avatar from "@/components/Avatar";
 
 interface NavItem {
   href: string;
@@ -82,7 +82,6 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
   };
 
   const secundariosVisiveis = [...ITENS_SECUNDARIOS.filter(podeVer), ...(souSuperAdmin ? [ITEM_PAINEL_ADMIN] : [])];
-  const avatar = corAvatar(perfil.nome);
 
   async function handleLogout() {
     await logout();
@@ -109,12 +108,7 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
         <div className="flex items-center gap-3 border-t border-border-subtle px-4 py-4">
-          <div
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-            style={{ background: avatar.bg, color: avatar.fg }}
-          >
-            {iniciais(perfil.nome)}
-          </div>
+          <Avatar nome={perfil.nome} fotoUrl={perfil.foto_url} className="h-9 w-9 text-xs" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{perfil.nome}</p>
             <p className="truncate text-xs text-muted">{perfil.papel}</p>

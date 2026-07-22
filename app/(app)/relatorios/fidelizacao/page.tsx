@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { RelatorioHeader } from "@/components/RelatorioHeader";
 import { listarAgendamentos, listarEquipe } from "@/lib/repositories";
-import { corAvatar, iniciais } from "@/lib/avatar";
+import Avatar from "@/components/Avatar";
 import { converterIsoParaMillis, janelaUltimosDias } from "@/lib/datetime";
 import { Agendamento } from "@/lib/types";
 
 interface LinhaFidelizacao {
   nomeProfissional: string;
+  fotoUrl: string | null;
   totalClientes: number;
   retornaram: number;
   taxaRetorno: number;
@@ -32,7 +33,7 @@ export default function FidelizacaoPage() {
     setCarregando(true);
     try {
       const [agendamentos, equipe] = await Promise.all([listarAgendamentos(perfil.salao_id), listarEquipe(perfil.salao_id)]);
-      const equipeMap = new Map(equipe.map((p) => [p.id, p.nome]));
+      const equipeMap = new Map(equipe.map((p) => [p.id, p]));
       const [inicio, fim] = janelaUltimosDias(30);
 
       const doPeriodo = agendamentos.filter((a) => {
@@ -58,7 +59,8 @@ export default function FidelizacaoPage() {
         somaRetornaram += retornaram;
         somaClientes += totalClientes;
         return {
-          nomeProfissional: equipeMap.get(profissionalId) ?? "Não atribuído",
+          nomeProfissional: equipeMap.get(profissionalId)?.nome ?? "Não atribuído",
+          fotoUrl: equipeMap.get(profissionalId)?.foto_url ?? null,
           totalClientes,
           retornaram,
           taxaRetorno: totalClientes > 0 ? (retornaram / totalClientes) * 100 : 0,
@@ -94,17 +96,11 @@ export default function FidelizacaoPage() {
       ) : (
         <div className="flex flex-col gap-3">
           {linhas.map((l, i) => {
-            const avatar = corAvatar(l.nomeProfissional);
             return (
               <div key={i} className="card-elevated rounded-xl bg-surface p-4">
                 <div className="mb-2 flex items-center gap-3">
                   <span className="text-sm font-semibold text-muted">{i + 1}.</span>
-                  <div
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-                    style={{ background: avatar.bg, color: avatar.fg }}
-                  >
-                    {iniciais(l.nomeProfissional)}
-                  </div>
+                  <Avatar nome={l.nomeProfissional} fotoUrl={l.fotoUrl} className="h-9 w-9 text-xs" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{l.nomeProfissional}</p>
                     <p className="text-xs text-muted">

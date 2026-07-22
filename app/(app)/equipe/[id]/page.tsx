@@ -14,7 +14,7 @@ import {
   removerDaEquipe,
   salvarPermissoesUsuario,
 } from "@/lib/repositories";
-import { corAvatar, iniciais } from "@/lib/avatar";
+import Avatar from "@/components/Avatar";
 import { PermissaoVisualizacao, Perfil } from "@/lib/types";
 
 type ModoAgenda = "PROPRIA" | "SELECIONADOS" | "EQUIPE";
@@ -140,17 +140,10 @@ export default function GerenciarPermissoesPage() {
     );
   }
 
-  const avatar = corAvatar(pessoa.nome);
-
   return (
     <div className="mx-auto max-w-2xl p-5 pb-16 md:p-8">
       <div className="mb-6 flex items-center gap-3">
-        <div
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-          style={{ background: avatar.bg, color: avatar.fg }}
-        >
-          {iniciais(pessoa.nome)}
-        </div>
+        <Avatar nome={pessoa.nome} fotoUrl={pessoa.foto_url} className="h-12 w-12 text-sm" />
         <div className="min-w-0 flex-1">
           <p className="text-xl font-semibold">{pessoa.nome}</p>
           <p className="text-sm text-muted">{pessoa.papel}</p>
