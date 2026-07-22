@@ -17,3 +17,13 @@ export async function definirAtendeClientes(perfilId: string, valor: boolean): P
   const { error } = await supabase.from("perfis").update({ atende_clientes: valor }).eq("id", perfilId);
   if (error) throw error;
 }
+
+export async function definirComissaoPercentual(perfilId: string, percentual: number): Promise<void> {
+  const { error } = await supabase.from("perfis").update({ comissao_percentual: percentual }).eq("id", perfilId);
+  if (error) throw error;
+}
+
+export async function removerDaEquipe(perfilId: string): Promise<void> {
+  const { error } = await supabase.from("perfis").delete().eq("id", perfilId);
+  if (error) throw error;
+}

@@ -142,3 +142,99 @@ export interface FechamentoComissao {
   data_fim: string;
   valor_total: number;
 }
+
+export interface Convite {
+  id: string;
+  salao_id: string;
+  codigo: string;
+  papel: string;
+  usado: boolean;
+}
+
+export interface Salao {
+  id: string;
+  nome: string;
+  modo_comissao_pacote: string;
+  cnpj: string | null;
+  tipo_empresa: string | null;
+  faturamento_mensal: string | null;
+  endereco: string | null;
+  cep: string | null;
+  numero: string | null;
+  bairro: string | null;
+  celular_unidade: string | null;
+  descricao: string | null;
+  instagram_url: string | null;
+  whatsapp: string | null;
+  cliente_escolhe_profissional: boolean;
+  duracao_padrao_minutos: number;
+  antecedencia_minima_ativa: boolean;
+  antecedencia_minima_minutos: number;
+  logo_url: string | null;
+  trial_fim: string | null;
+  mensagem_confirmacao: string | null;
+  acesso_liberado_manualmente: boolean;
+  mensagem_remarcacao: string | null;
+  mensagem_cancelamento: string | null;
+}
+
+export interface HorarioFuncionamento {
+  id: string;
+  salao_id: string;
+  dias: number[]; // 0=Dom .. 6=Sáb
+  abertura: string; // "HH:mm"
+  fechamento: string; // "HH:mm"
+}
+
+export interface Plano {
+  id: string;
+  nome: string;
+  faixa_min: number;
+  faixa_max: number | null;
+  frequencia: "MENSAL" | "ANUAL";
+  preco: number;
+  ativo: boolean;
+}
+
+export type StatusAssinatura = "PENDENTE" | "ATIVA" | "CANCELADA" | "ATRASADA" | string;
+
+export interface Assinatura {
+  id: string;
+  salao_id: string;
+  plano_id: string;
+  mercadopago_preapproval_id: string | null;
+  status: StatusAssinatura;
+  data_inicio: string | null;
+  data_proxima_cobranca: string | null;
+}
+
+export interface SuporteMensagem {
+  id?: string;
+  salao_id: string;
+  remetente_nome: string;
+  mensagem: string;
+  status: string;
+}
+
+// Formatos de resposta das edge functions (não são linhas de tabela).
+export interface SalaoPainel {
+  salaoId: string;
+  nomeSalao: string;
+  contato: string;
+  statusAssinatura: StatusAssinatura;
+  nomePlano?: string;
+  precoPlano?: number;
+  assinaturaId?: string;
+  mercadopagoPreapprovalId?: string;
+  acessoLiberadoManualmente: boolean;
+  trialFim?: string;
+}
+
+export interface SuporteMensagemPainel {
+  id: string;
+  nomeSalao: string;
+  remetenteNome: string;
+  mensagem: string;
+  status: string;
+  criadoEm: string;
+}

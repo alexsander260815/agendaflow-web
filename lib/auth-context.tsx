@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { buscarPerfil } from "@/lib/repositories/perfilRepository";
+import { souSuperAdmin as buscarSouSuperAdmin } from "@/lib/repositories/painelAdminRepository";
 import { profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
 import { Perfil } from "@/lib/types";
 
@@ -10,6 +11,7 @@ interface AuthContextValue {
   perfil: Perfil | null;
   carregando: boolean;
   mostrarFinanceiro: boolean;
+  souSuperAdmin: boolean;
   login: (email: string, senha: string) => Promise<{ erro: string | null }>;
   logout: () => Promise<void>;
   refrescarPerfil: () => Promise<void>;
@@ -25,6 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [mostrarFinanceiro, setMostrarFinanceiro] = useState(false);
+  const [souSuperAdmin, setSouSuperAdmin] = useState(false);
   const perfilJaCarregado = useRef(false);
 
   async function carregarPerfilComTentativas(userId: string) {
@@ -38,6 +41,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setMostrarFinanceiro(lista === null || lista.length > 0);
           } catch {
             setMostrarFinanceiro(false);
+          }
+          try {
+            setSouSuperAdmin(await buscarSouSuperAdmin(userId));
+          } catch {
+            setSouSuperAdmin(false);
           }
           return;
         }
@@ -59,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         perfilJaCarregado.current = false;
         setPerfil(null);
         setMostrarFinanceiro(false);
+        setSouSuperAdmin(false);
       }
       setCarregando(false);
     });
@@ -89,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
     setPerfil(null);
     setMostrarFinanceiro(false);
+    setSouSuperAdmin(false);
     perfilJaCarregado.current = false;
   }
 
@@ -103,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ perfil, carregando, mostrarFinanceiro, login, logout, refrescarPerfil }}>
+    <AuthContext.Provider value={{ perfil, carregando, mostrarFinanceiro, souSuperAdmin, login, logout, refrescarPerfil }}>
       {children}
     </AuthContext.Provider>
   );

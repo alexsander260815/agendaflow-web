@@ -6,11 +6,16 @@ import { useEffect, useState } from "react";
 import {
   BarChart3,
   Boxes,
+  Building2,
   CalendarDays,
+  CreditCard,
+  HeartHandshake,
   LayoutGrid,
+  LifeBuoy,
   LogOut,
   Menu,
   Scissors,
+  Shield,
   User,
   Users,
   Wallet,
@@ -34,14 +39,20 @@ const ITENS_PRINCIPAIS: NavItem[] = [
 
 const ITENS_SECUNDARIOS: NavItem[] = [
   { href: "/servicos", label: "Serviços", icon: Scissors },
-  { href: "/financeiro", label: "Financeiro", icon: Wallet, donoOnly: false },
+  { href: "/financeiro", label: "Financeiro", icon: Wallet },
   { href: "/estoque", label: "Estoque", icon: Boxes, donoOnly: true },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3, donoOnly: true },
+  { href: "/equipe", label: "Equipe", icon: HeartHandshake, donoOnly: true },
+  { href: "/negocio", label: "Meu Negócio", icon: Building2, donoOnly: true },
+  { href: "/planos", label: "Planos", icon: CreditCard, donoOnly: true },
   { href: "/perfil", label: "Meu Perfil", icon: User },
+  { href: "/suporte", label: "Suporte", icon: LifeBuoy },
 ];
 
+const ITEM_PAINEL_ADMIN: NavItem = { href: "/painel-admin", label: "Painel Admin", icon: Shield };
+
 export default function NavShell({ children }: { children: React.ReactNode }) {
-  const { perfil, carregando, mostrarFinanceiro, logout } = useAuth();
+  const { perfil, carregando, mostrarFinanceiro, souSuperAdmin, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [mostrarMais, setMostrarMais] = useState(false);
@@ -70,8 +81,7 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
     return true;
   };
 
-  const secundariosVisiveis = ITENS_SECUNDARIOS.filter(podeVer);
-  const todosItens = [...ITENS_PRINCIPAIS, ...secundariosVisiveis];
+  const secundariosVisiveis = [...ITENS_SECUNDARIOS.filter(podeVer), ...(souSuperAdmin ? [ITEM_PAINEL_ADMIN] : [])];
   const avatar = corAvatar(perfil.nome);
 
   async function handleLogout() {
@@ -141,16 +151,16 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
       {mostrarMais && (
         <div className="fixed inset-0 z-30 flex items-end bg-black/60 backdrop-blur-sm md:hidden" onClick={() => setMostrarMais(false)}>
           <div
-            className="w-full rounded-t-2xl bg-surface p-3 pb-6"
+            className="flex max-h-[80vh] w-full flex-col rounded-t-2xl bg-surface p-3 pb-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-2 flex items-center justify-between px-2 py-2">
+            <div className="mb-2 flex shrink-0 items-center justify-between px-2 py-2">
               <span className="text-sm font-medium text-muted">Mais opções</span>
               <button onClick={() => setMostrarMais(false)} className="text-muted">
                 <X size={18} />
               </button>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 overflow-y-auto">
               {secundariosVisiveis.map((item) => {
                 const Icone = item.icon;
                 return (
