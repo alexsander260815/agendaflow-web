@@ -9,6 +9,52 @@ export interface Perfil {
   foto_url: string | null;
   comissao_percentual: number;
   atende_clientes: boolean;
+  papel_id: string | null;
+}
+
+export interface Papel {
+  id: string;
+  salao_id: string | null;
+  nome: string;
+  is_personalizado: boolean;
+}
+
+export interface Permissao {
+  id: string;
+  chave: string;
+  descricao: string;
+}
+
+export interface PapelPermissao {
+  papel_id: string;
+  permissao_id: string;
+}
+
+export interface PerfilPermissaoExcecao {
+  id?: string;
+  salao_id: string;
+  perfil_id: string;
+  permissao_id: string;
+  concedida: boolean;
+}
+
+export type CategoriaVisibilidade = "AGENDA" | "CLIENTES" | "FINANCEIRO" | "COMISSAO" | "RELATORIOS";
+
+export interface EscopoVisualizacao {
+  id?: string;
+  salao_id: string;
+  usuario_id: string;
+  categoria: CategoriaVisibilidade;
+  modo: "PROPRIA" | "SELECIONADOS" | "EQUIPE";
+  ve_dono: boolean;
+}
+
+export interface EscopoVisualizacaoConcessao {
+  id?: string;
+  salao_id: string;
+  visualizador_id: string;
+  alvo_id: string;
+  categoria: CategoriaVisibilidade;
 }
 
 export interface Cliente {
