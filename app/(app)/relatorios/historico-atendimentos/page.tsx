@@ -95,20 +95,40 @@ export default function HistoricoAtendimentosPage() {
       ) : linhas.length === 0 ? (
         <p className="text-center text-sm text-muted">Nenhum dado nesse período.</p>
       ) : (
-        <div className="flex flex-col gap-2">
-          {linhas.map((l, i) => (
-            <div key={i} className="card-elevated rounded-xl bg-surface p-3.5">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">{formatarDataHora(l.dataHoraMillis)}</span>
-                <span className="text-sm font-medium text-accent">{formatarMoeda(l.valorTotal)}</span>
-              </div>
-              <p className="mt-0.5 text-sm font-medium">{l.nomeCliente}</p>
-              <p className="text-xs text-muted">
-                {l.nomeProfissional} · {l.nomesServicos}
-              </p>
+        (() => {
+          const agrupado = new Map<string, typeof linhas>();
+          linhas.forEach((l) => {
+            const lista = agrupado.get(l.nomeProfissional) ?? [];
+            lista.push(l);
+            agrupado.set(l.nomeProfissional, lista);
+          });
+          const mostrarCabecalho = agrupado.size > 1;
+          const grupos = Array.from(agrupado.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
+          return (
+            <div className="flex flex-col gap-2">
+              {grupos.map(([nomeProfissional, itensDoProfissional]) => (
+                <div key={nomeProfissional} className="flex flex-col gap-2">
+                  {mostrarCabecalho && (
+                    <p className="mt-2 text-sm font-medium">{nomeProfissional}</p>
+                  )}
+                  {itensDoProfissional.map((l, i) => (
+                    <div key={i} className="card-elevated rounded-xl bg-surface p-3.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">{formatarDataHora(l.dataHoraMillis)}</span>
+                        <span className="text-sm font-medium text-accent">{formatarMoeda(l.valorTotal)}</span>
+                      </div>
+                      <p className="mt-0.5 text-sm font-medium">{l.nomeCliente}</p>
+                      <p className="text-xs text-muted">
+                        {mostrarCabecalho ? l.nomesServicos : `${l.nomeProfissional} · ${l.nomesServicos}`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          );
+        })()
       )}
     </div>
   );

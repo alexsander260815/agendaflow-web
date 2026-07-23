@@ -4,8 +4,15 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { RelatorioHeader } from "@/components/RelatorioHeader";
 import { profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
-import { listarAgendamentoServicos, listarAgendamentos } from "@/lib/repositories";
+import { listarAgendamentoServicos, listarAgendamentos, listarEquipe } from "@/lib/repositories";
 import { converterIsoParaMillis, formatarMoeda, janelaUltimosDias } from "@/lib/datetime";
+
+interface FaltasProfissional {
+  nome: string;
+  total: number;
+  faltas: number;
+  taxaFaltas: number;
+}
 
 export default function RelatorioFaltasPage() {
   const { perfil } = useAuth();
@@ -14,6 +21,7 @@ export default function RelatorioFaltasPage() {
   const [finalizados, setFinalizados] = useState(0);
   const [faltas, setFaltas] = useState(0);
   const [receitaPerdida, setReceitaPerdida] = useState(0);
+  const [porProfissional, setPorProfissional] = useState<FaltasProfissional[]>([]);
 
   useEffect(() => {
     if (!perfil) return;
@@ -25,11 +33,13 @@ export default function RelatorioFaltasPage() {
     if (!perfil) return;
     setCarregando(true);
     try {
-      const [agendamentos, itens, permitidos] = await Promise.all([
+      const [agendamentos, itens, equipe, permitidos] = await Promise.all([
         listarAgendamentos(perfil.salao_id),
         listarAgendamentoServicos(perfil.salao_id),
+        listarEquipe(perfil.salao_id),
         profissionaisVisiveisFinanceiro(perfil),
       ]);
+      const equipeMap = new Map(equipe.map((p) => [p.id, p.nome]));
       const [inicio, fim] = janelaUltimosDias(30);
       const doPeriodo = agendamentos.filter((a) => {
         const m = converterIsoParaMillis(a.data_hora);
@@ -45,6 +55,24 @@ export default function RelatorioFaltasPage() {
       setFinalizados(doPeriodo.filter((a) => a.status === "CONCLUIDO").length);
       setFaltas(faltasLista.length);
       setReceitaPerdida(receitaPerdidaCalc);
+
+      const porProfissionalMap = new Map<string, { total: number; faltas: number }>();
+      doPeriodo.forEach((a) => {
+        if (!a.profissional_id) return;
+        const atual = porProfissionalMap.get(a.profissional_id) ?? { total: 0, faltas: 0 };
+        atual.total += 1;
+        if (a.status === "FALTOU") atual.faltas += 1;
+        porProfissionalMap.set(a.profissional_id, atual);
+      });
+      const porProfissionalCalc = Array.from(porProfissionalMap.entries())
+        .map(([profissionalId, dados]) => ({
+          nome: equipeMap.get(profissionalId) ?? "Não atribuído",
+          total: dados.total,
+          faltas: dados.faltas,
+          taxaFaltas: dados.total > 0 ? (dados.faltas / dados.total) * 100 : 0,
+        }))
+        .sort((a, b) => b.taxaFaltas - a.taxaFaltas);
+      setPorProfissional(porProfissionalCalc);
     } finally {
       setCarregando(false);
     }
@@ -82,6 +110,25 @@ export default function RelatorioFaltasPage() {
               <p className="mt-1 text-2xl font-semibold tabular-nums">{m.valor}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {!carregando && porProfissional.length > 1 && (
+        <div className="mt-5">
+          <p className="mb-2 text-sm font-medium">Por profissional</p>
+          <div className="flex flex-col gap-2">
+            {porProfissional.map((p, i) => (
+              <div key={i} className="card-elevated flex items-center justify-between rounded-xl bg-surface p-4">
+                <div>
+                  <p className="font-medium">{p.nome}</p>
+                  <p className="text-sm text-muted">
+                    {p.faltas} falta(s) de {p.total}
+                  </p>
+                </div>
+                <span className="font-semibold tabular-nums">{p.taxaFaltas.toFixed(1)}%</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
