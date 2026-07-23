@@ -8,6 +8,7 @@ import { listarAgendamentoServicos } from "@/lib/repositories/agendamentoServico
 import { listarClientes } from "@/lib/repositories/clienteRepository";
 import { listarEquipe } from "@/lib/repositories/perfilRepository";
 import { profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
+import { profissionaisVisiveis } from "@/lib/authorization";
 import Avatar from "@/components/Avatar";
 import { Agendamento, AgendamentoServico } from "@/lib/types";
 import {
@@ -62,12 +63,13 @@ export default function DashboardPage() {
     if (!perfil) return;
     setCarregando(true);
     try {
-      const [todosAgendamentos, todosItens, clientes, equipe, permitidos] = await Promise.all([
+      const [todosAgendamentos, todosItens, clientes, equipe, permitidos, permitidosAgenda] = await Promise.all([
         listarAgendamentos(perfil.salao_id),
         listarAgendamentoServicos(perfil.salao_id),
         listarClientes(perfil.salao_id),
         listarEquipe(perfil.salao_id),
         profissionaisVisiveisFinanceiro(perfil),
+        profissionaisVisiveis(perfil, "AGENDA"),
       ]);
 
       const clientesMap = new Map(clientes.map((c) => [c.id, c.nome]));
@@ -83,9 +85,9 @@ export default function DashboardPage() {
         permitidos === null || (profissionalId !== null && permitidos.includes(profissionalId));
 
       const agendamentosVisiveisNaAgenda =
-        perfil.papel === "PROFISSIONAL"
-          ? todosAgendamentos.filter((a) => a.profissional_id === perfil.id)
-          : todosAgendamentos;
+        permitidosAgenda === null
+          ? todosAgendamentos
+          : todosAgendamentos.filter((a) => a.profissional_id === null || permitidosAgenda.includes(a.profissional_id));
 
       const hojeInicio = inicioDoDia();
       const hojeFim = fimDoDia();
