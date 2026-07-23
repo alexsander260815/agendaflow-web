@@ -132,6 +132,17 @@ export interface RetornoCliente {
   criado_em: string;
 }
 
+export interface BloqueioAgenda {
+  id: string;
+  salao_id: string;
+  profissional_id: string;
+  data_inicio: string;
+  data_fim: string;
+  motivo: string;
+  criado_por: string | null;
+  criado_em: string;
+}
+
 export interface PermissoesUsuario {
   id?: string;
   salao_id: string;

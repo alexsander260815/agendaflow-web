@@ -5,6 +5,7 @@ export * from "./clientePacoteRepository";
 export * from "./agendamentoRepository";
 export * from "./agendamentoServicoRepository";
 export * from "./retornoClienteRepository";
+export * from "./bloqueioAgendaRepository";
 export * from "./perfilRepository";
 export * from "./permissoesRepository";
 export * from "./papelRepository";

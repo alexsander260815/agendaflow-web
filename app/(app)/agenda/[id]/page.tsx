@@ -36,7 +36,7 @@ import {
   atualizarQuantidadeClientePacote,
   marcarComoDescontado,
 } from "@/lib/repositories";
-import { criarRetornoCliente } from "@/lib/repositories";
+import { criarRetornoCliente, listarBloqueiosAgenda } from "@/lib/repositories";
 import { Agendamento, AgendamentoServico, Cliente, ClientePacote, ItemComanda, Perfil, Servico } from "@/lib/types";
 import { converterIsoParaMillis, converterMillisParaIso, formatarMoeda, formatarStatus } from "@/lib/datetime";
 import { abrirWhatsApp } from "@/lib/whatsapp";
@@ -248,6 +248,17 @@ function AgendamentoFormInner() {
         return `Já existe um agendamento às ${hora} com ${nomeCliente} para esse profissional.`;
       }
     }
+
+    const bloqueios = await listarBloqueiosAgenda(perfil.salao_id);
+    for (const b of bloqueios) {
+      if (b.profissional_id !== profissionalSelecionadoId) continue;
+      const bloqueioInicio = converterIsoParaMillis(b.data_inicio);
+      const bloqueioFim = converterIsoParaMillis(b.data_fim);
+      if (dataHoraMillis < bloqueioFim && fimNovo > bloqueioInicio) {
+        return `Esse horário está bloqueado: ${b.motivo}`;
+      }
+    }
+
     return null;
   }
 

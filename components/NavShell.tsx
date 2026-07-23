@@ -9,6 +9,7 @@ import {
   Boxes,
   Building2,
   CalendarDays,
+  CalendarOff,
   CreditCard,
   HeartHandshake,
   LayoutGrid,
@@ -43,6 +44,7 @@ const ITENS_PRINCIPAIS: NavItem[] = [
 const ITENS_SECUNDARIOS: NavItem[] = [
   { href: "/servicos", label: "Serviços", icon: Scissors },
   { href: "/retorno-clientes", label: "Retorno de Clientes", icon: BellRing },
+  { href: "/bloqueios-agenda", label: "Bloqueios de Agenda", icon: CalendarOff },
   { href: "/financeiro", label: "Financeiro", icon: Wallet },
   { href: "/estoque", label: "Estoque", icon: Boxes, donoOnly: true },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
