@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { RelatorioHeader, PeriodoChips } from "@/components/RelatorioHeader";
+import { profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
 import { listarAgendamentoServicos, listarAgendamentos, listarClientes, listarEquipe } from "@/lib/repositories";
 import { AgendamentoServico } from "@/lib/types";
 import { converterIsoParaMillis, formatarDataHora, formatarMoeda, intervaloPeriodoRapido, PeriodoRapido } from "@/lib/datetime";
@@ -31,11 +32,12 @@ export default function HistoricoAtendimentosPage() {
     if (!perfil) return;
     setCarregando(true);
     try {
-      const [agendamentos, itens, clientes, equipe] = await Promise.all([
+      const [agendamentos, itens, clientes, equipe, permitidos] = await Promise.all([
         listarAgendamentos(perfil.salao_id),
         listarAgendamentoServicos(perfil.salao_id),
         listarClientes(perfil.salao_id),
         listarEquipe(perfil.salao_id),
+        profissionaisVisiveisFinanceiro(perfil),
       ]);
       const clientesMap = new Map(clientes.map((c) => [c.id, c.nome]));
       const equipeMap = new Map(equipe.map((p) => [p.id, p.nome]));
@@ -48,7 +50,11 @@ export default function HistoricoAtendimentosPage() {
 
       const [inicio, fim] = intervaloPeriodoRapido(periodo);
       const concluidos = agendamentos.filter(
-        (a) => a.status === "CONCLUIDO" && converterIsoParaMillis(a.data_hora) >= inicio && converterIsoParaMillis(a.data_hora) <= fim
+        (a) =>
+          a.status === "CONCLUIDO" &&
+          converterIsoParaMillis(a.data_hora) >= inicio &&
+          converterIsoParaMillis(a.data_hora) <= fim &&
+          (permitidos === null || (a.profissional_id !== null && permitidos.includes(a.profissional_id)))
       );
 
       const resultado = concluidos

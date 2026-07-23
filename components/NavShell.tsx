@@ -45,7 +45,7 @@ const ITENS_SECUNDARIOS: NavItem[] = [
   { href: "/retorno-clientes", label: "Retorno de Clientes", icon: BellRing },
   { href: "/financeiro", label: "Financeiro", icon: Wallet },
   { href: "/estoque", label: "Estoque", icon: Boxes, donoOnly: true },
-  { href: "/relatorios", label: "Relatórios", icon: BarChart3, donoOnly: true },
+  { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
   { href: "/equipe", label: "Equipe", icon: HeartHandshake, donoOnly: true },
   { href: "/negocio", label: "Meu Negócio", icon: Building2, donoOnly: true },
   { href: "/planos", label: "Planos", icon: CreditCard, donoOnly: true },
@@ -88,7 +88,7 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
   }
 
   const podeVer = (item: NavItem) => {
-    if (item.href === "/financeiro") return mostrarFinanceiro;
+    if (item.href === "/financeiro" || item.href === "/relatorios") return mostrarFinanceiro;
     if (item.donoOnly) return perfil.papel === "DONO";
     return true;
   };

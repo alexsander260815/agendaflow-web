@@ -85,7 +85,8 @@ function AgendamentoFormInner() {
   );
   const [dataSelecionada, setDataSelecionada] = useState<string>(() => {
     const millis = searchParams.get("data") ? Number(searchParams.get("data")) : Date.now();
-    return new Date(millis).toISOString().slice(0, 10);
+    const d = new Date(millis);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   });
   const [horaSelecionada, setHoraSelecionada] = useState<string>(() => {
     const minutos = searchParams.get("hora") ? Number(searchParams.get("hora")) : 9 * 60;
@@ -124,7 +125,7 @@ function AgendamentoFormInner() {
     if (ag) {
       setProfissionalSelecionadoId(ag.profissional_id);
       const d = new Date(converterIsoParaMillis(ag.data_hora));
-      setDataSelecionada(d.toISOString().slice(0, 10));
+      setDataSelecionada(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
       setHoraSelecionada(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
       setObservacoes(ag.observacoes);
       if (ag.cliente_id) {

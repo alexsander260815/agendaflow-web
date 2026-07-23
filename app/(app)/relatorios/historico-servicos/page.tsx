@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { RelatorioHeader, PeriodoChips } from "@/components/RelatorioHeader";
+import { profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
 import { listarAgendamentoServicos, listarAgendamentos } from "@/lib/repositories";
 import { converterIsoParaMillis, formatarMoeda, intervaloPeriodoRapido, PeriodoRapido } from "@/lib/datetime";
 
@@ -29,15 +30,22 @@ export default function HistoricoServicosPage() {
     if (!perfil) return;
     setCarregando(true);
     try {
-      const [agendamentos, itens] = await Promise.all([
+      const [agendamentos, itens, permitidos] = await Promise.all([
         listarAgendamentos(perfil.salao_id),
         listarAgendamentoServicos(perfil.salao_id),
+        profissionaisVisiveisFinanceiro(perfil),
       ]);
 
       const [inicio, fim] = intervaloPeriodoRapido(periodo);
       const idsConcluidos = new Set(
         agendamentos
-          .filter((a) => a.status === "CONCLUIDO" && converterIsoParaMillis(a.data_hora) >= inicio && converterIsoParaMillis(a.data_hora) <= fim)
+          .filter(
+            (a) =>
+              a.status === "CONCLUIDO" &&
+              converterIsoParaMillis(a.data_hora) >= inicio &&
+              converterIsoParaMillis(a.data_hora) <= fim &&
+              (permitidos === null || (a.profissional_id !== null && permitidos.includes(a.profissional_id)))
+          )
           .map((a) => a.id)
       );
       const itensDoPeriodo = itens.filter((i) => idsConcluidos.has(i.agendamento_id));

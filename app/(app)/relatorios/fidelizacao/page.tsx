@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { RelatorioHeader } from "@/components/RelatorioHeader";
 import { listarAgendamentos, listarEquipe } from "@/lib/repositories";
+import { profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
 import Avatar from "@/components/Avatar";
 import { converterIsoParaMillis, janelaUltimosDias } from "@/lib/datetime";
 import { Agendamento } from "@/lib/types";
@@ -32,13 +33,18 @@ export default function FidelizacaoPage() {
     if (!perfil) return;
     setCarregando(true);
     try {
-      const [agendamentos, equipe] = await Promise.all([listarAgendamentos(perfil.salao_id), listarEquipe(perfil.salao_id)]);
+      const [agendamentos, equipe, permitidos] = await Promise.all([
+        listarAgendamentos(perfil.salao_id),
+        listarEquipe(perfil.salao_id),
+        profissionaisVisiveisFinanceiro(perfil),
+      ]);
       const equipeMap = new Map(equipe.map((p) => [p.id, p]));
       const [inicio, fim] = janelaUltimosDias(30);
 
       const doPeriodo = agendamentos.filter((a) => {
         const m = converterIsoParaMillis(a.data_hora);
-        return a.status === "CONCLUIDO" && a.profissional_id !== null && m >= inicio && m <= fim;
+        const permitido = permitidos === null || (a.profissional_id !== null && permitidos.includes(a.profissional_id));
+        return a.status === "CONCLUIDO" && a.profissional_id !== null && m >= inicio && m <= fim && permitido;
       });
 
       const porProfissional = new Map<string, Agendamento[]>();
