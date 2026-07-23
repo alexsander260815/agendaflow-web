@@ -27,3 +27,8 @@ export async function removerDaEquipe(perfilId: string): Promise<void> {
   const { error } = await supabase.from("perfis").delete().eq("id", perfilId);
   if (error) throw error;
 }
+
+export async function definirPapelId(perfilId: string, papelId: string, papelLegado: string): Promise<void> {
+  const { error } = await supabase.from("perfis").update({ papel_id: papelId, papel: papelLegado }).eq("id", perfilId);
+  if (error) throw error;
+}

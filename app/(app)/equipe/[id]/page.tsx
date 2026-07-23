@@ -8,14 +8,18 @@ import {
   buscarPermissoesDe,
   definirAtendeClientes,
   definirComissaoPercentual,
+  definirConcessaoVisualizacao,
+  definirPapelId,
   definirPermissaoVisualizacao,
   listarEquipe,
+  listarPapeisAtribuiveis,
   listarPermissoesVisualizacaoDe,
   removerDaEquipe,
+  salvarEscopoVisualizacao,
   salvarPermissoesUsuario,
 } from "@/lib/repositories";
 import Avatar from "@/components/Avatar";
-import { PermissaoVisualizacao, Perfil } from "@/lib/types";
+import { Papel, PermissaoVisualizacao, Perfil } from "@/lib/types";
 
 type ModoAgenda = "PROPRIA" | "SELECIONADOS" | "EQUIPE";
 type ModoFinanceiro = "PROPRIO" | "SELECIONADOS" | "EQUIPE";
@@ -28,6 +32,7 @@ export default function GerenciarPermissoesPage() {
 
   const [pessoa, setPessoa] = useState<Perfil | null>(null);
   const [outrasPessoas, setOutrasPessoas] = useState<Perfil[]>([]);
+  const [papeis, setPapeis] = useState<Papel[]>([]);
   const [carregando, setCarregando] = useState(true);
 
   const [agendaModo, setAgendaModo] = useState<ModoAgenda>("PROPRIA");
@@ -50,13 +55,15 @@ export default function GerenciarPermissoesPage() {
     if (!perfil) return;
     setCarregando(true);
     try {
-      const [equipe, permissoes, individuais] = await Promise.all([
+      const [equipe, permissoes, individuais, papeisAtribuiveis] = await Promise.all([
         listarEquipe(perfil.salao_id),
         buscarPermissoesDe(pessoaId),
         listarPermissoesVisualizacaoDe(pessoaId),
+        listarPapeisAtribuiveis().catch(() => []),
       ]);
       const p = equipe.find((e) => e.id === pessoaId) ?? null;
       setPessoa(p);
+      setPapeis(papeisAtribuiveis);
       setOutrasPessoas(equipe.filter((e) => e.id !== pessoaId));
       setAtendeClientes(p?.atende_clientes ?? false);
       setComissao(String(p?.comissao_percentual ?? 50));
@@ -84,6 +91,26 @@ export default function GerenciarPermissoesPage() {
       financeiro_modo: novoFinanceiroModo,
       financeiro_ve_dono: novoFinanceiroVeDono,
     });
+    try {
+      await Promise.all([
+        salvarEscopoVisualizacao(perfil.salao_id, pessoaId, "AGENDA", novaAgendaModo, novoAgendaVeDono),
+        salvarEscopoVisualizacao(
+          perfil.salao_id,
+          pessoaId,
+          "FINANCEIRO",
+          novoFinanceiroModo === "PROPRIO" ? "PROPRIA" : novoFinanceiroModo,
+          novoFinanceiroVeDono
+        ),
+      ]);
+    } catch {
+      // tabela nova é best-effort — a antiga (fonte de verdade das telas ainda não migradas) já foi salva
+    }
+  }
+
+  async function handleEscolherPapel(papel: Papel) {
+    const papelLegado = papel.nome === "Profissional" ? "PROFISSIONAL" : "ADMIN";
+    await definirPapelId(pessoaId, papel.id, papelLegado);
+    setPessoa((atual) => (atual ? { ...atual, papel_id: papel.id, papel: papelLegado } : atual));
   }
 
   function temPermissao(alvoId: string, campo: "ve_agenda" | "ve_financeiro"): boolean {
@@ -97,6 +124,17 @@ export default function GerenciarPermissoesPage() {
     const veFinanceiro = campo === "ve_financeiro" ? valor : atual?.ve_financeiro ?? false;
 
     await definirPermissaoVisualizacao(perfil.salao_id, pessoaId, alvoId, veAgenda, veFinanceiro);
+    try {
+      await definirConcessaoVisualizacao(
+        perfil.salao_id,
+        pessoaId,
+        alvoId,
+        campo === "ve_agenda" ? "AGENDA" : "FINANCEIRO",
+        valor
+      );
+    } catch {
+      // best-effort, ver comentário em salvarModo
+    }
 
     setPermissoesIndividuais((lista) => {
       const semEsse = lista.filter((p) => p.alvo_id !== alvoId);
@@ -157,6 +195,26 @@ export default function GerenciarPermissoesPage() {
       </div>
 
       <div className="flex flex-col gap-4">
+        {/* Papel */}
+        {papeis.length > 0 && (
+          <div className="card-elevated rounded-2xl bg-surface p-4">
+            <p className="mb-3 font-medium">Papel</p>
+            <div className="flex flex-col gap-1.5">
+              {papeis.map((p) => (
+                <label key={p.id} className="flex items-center gap-2.5 text-sm">
+                  <input
+                    type="radio"
+                    checked={pessoa.papel_id === p.id}
+                    onChange={() => handleEscolherPapel(p)}
+                    className="h-4 w-4 accent-accent"
+                  />
+                  {p.nome}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Agenda */}
         <div className="card-elevated rounded-2xl bg-surface p-4">
           <div className="mb-3 flex items-center gap-2">
