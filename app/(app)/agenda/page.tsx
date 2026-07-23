@@ -7,13 +7,14 @@ import { useAuth } from "@/lib/auth-context";
 import {
   listarAgendamentoServicos,
   listarAgendamentos,
+  listarBloqueiosAgenda,
   listarClientes,
   listarEquipe,
   listarServicos,
 } from "@/lib/repositories";
 import { profissionaisVisiveisAgenda } from "@/lib/permissoes";
 import Avatar from "@/components/Avatar";
-import { Agendamento, AgendamentoServico, Perfil } from "@/lib/types";
+import { Agendamento, AgendamentoServico, BloqueioAgenda, Perfil } from "@/lib/types";
 import { converterIsoParaMillis, inicioDoDia } from "@/lib/datetime";
 
 const HORA_INICIO = 7;
@@ -29,6 +30,13 @@ interface BlocoAgenda {
   concluido: boolean;
 }
 
+interface BlocoBloqueio {
+  id: string;
+  motivo: string;
+  inicioMinutosDoDia: number;
+  duracaoMinutos: number;
+}
+
 export default function AgendaPage() {
   const { perfil } = useAuth();
   const router = useRouter();
@@ -42,6 +50,7 @@ export default function AgendaPage() {
   const [cacheItens, setCacheItens] = useState<Map<string, AgendamentoServico[]>>(new Map());
   const [cacheClientes, setCacheClientes] = useState<Map<string, string>>(new Map());
   const [cacheDuracoes, setCacheDuracoes] = useState<Map<string, number>>(new Map());
+  const [cacheBloqueios, setCacheBloqueios] = useState<BloqueioAgenda[]>([]);
 
   useEffect(() => {
     if (!perfil) return;
@@ -53,13 +62,14 @@ export default function AgendaPage() {
     if (!perfil) return;
     setCarregando(true);
     try {
-      const [equipeQueAtende, idsPermitidos, servicos, clientes, agendamentos, itens] = await Promise.all([
+      const [equipeQueAtende, idsPermitidos, servicos, clientes, agendamentos, itens, bloqueios] = await Promise.all([
         listarEquipe(perfil.salao_id).then((lista) => lista.filter((p) => p.atende_clientes)),
         profissionaisVisiveisAgenda(perfil),
         listarServicos(perfil.salao_id),
         listarClientes(perfil.salao_id),
         listarAgendamentos(perfil.salao_id),
         listarAgendamentoServicos(perfil.salao_id),
+        listarBloqueiosAgenda(perfil.salao_id),
       ]);
 
       const equipeFiltrada = idsPermitidos === null ? equipeQueAtende : equipeQueAtende.filter((p) => idsPermitidos.includes(p.id));
@@ -80,6 +90,7 @@ export default function AgendaPage() {
         porAgendamento.set(i.agendamento_id, lista);
       });
       setCacheItens(porAgendamento);
+      setCacheBloqueios(bloqueios);
     } finally {
       setCarregando(false);
     }
@@ -110,6 +121,30 @@ export default function AgendaPage() {
         };
       });
   }, [cacheAgendamentos, cacheItens, cacheDuracoes, cacheClientes, profissionalSelecionadoId, dataSelecionada]);
+
+  const bloqueiosDoDia: BlocoBloqueio[] = useMemo(() => {
+    if (!profissionalSelecionadoId) return [];
+    const inicioDia = dataSelecionada;
+    const fimDia = inicioDia + 24 * 60 * 60 * 1000;
+
+    return cacheBloqueios
+      .filter((b) => b.profissional_id === profissionalSelecionadoId)
+      .map((b) => {
+        const inicioMillis = converterIsoParaMillis(b.data_inicio);
+        const fimMillis = converterIsoParaMillis(b.data_fim);
+        if (fimMillis <= inicioDia || inicioMillis >= fimDia) return null;
+
+        const inicioRecortado = Math.max(inicioMillis, inicioDia);
+        const fimRecortado = Math.min(fimMillis, fimDia);
+        return {
+          id: b.id,
+          motivo: b.motivo,
+          inicioMinutosDoDia: Math.round((inicioRecortado - inicioDia) / 60000),
+          duracaoMinutos: Math.max(1, Math.round((fimRecortado - inicioRecortado) / 60000)),
+        };
+      })
+      .filter((b): b is BlocoBloqueio => b !== null);
+  }, [cacheBloqueios, profissionalSelecionadoId, dataSelecionada]);
 
   function irParaDiaAnterior() {
     setDataSelecionada((d) => d - 24 * 60 * 60 * 1000);
@@ -203,6 +238,20 @@ export default function AgendaPage() {
               <span className="w-14 -translate-y-2 pl-2 tabular-nums">{String(h).padStart(2, "0")}:00</span>
             </button>
           ))}
+
+          {bloqueiosDoDia.map((b) => {
+            const top = ((b.inicioMinutosDoDia - HORA_INICIO * 60) / 60) * PX_POR_HORA;
+            const altura = Math.max(24, (b.duracaoMinutos / 60) * PX_POR_HORA - 3);
+            return (
+              <div
+                key={b.id}
+                className="pointer-events-none absolute left-16 right-2 overflow-hidden rounded-lg bg-danger/15 p-2 text-left text-xs text-danger"
+                style={{ top, height: altura }}
+              >
+                <p className="truncate font-medium">Bloqueado: {b.motivo}</p>
+              </div>
+            );
+          })}
 
           {blocosDoDia.map((b) => {
             const top = ((b.inicioMinutosDoDia - HORA_INICIO * 60) / 60) * PX_POR_HORA;
