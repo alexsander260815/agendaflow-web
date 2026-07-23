@@ -37,6 +37,7 @@ import {
   marcarComoDescontado,
 } from "@/lib/repositories";
 import { criarRetornoCliente, listarBloqueiosAgenda } from "@/lib/repositories";
+import { registrarAuditoria } from "@/lib/auditoria";
 import { Agendamento, AgendamentoServico, Cliente, ClientePacote, ItemComanda, Perfil, Servico } from "@/lib/types";
 import { converterIsoParaMillis, converterMillisParaIso, formatarMoeda, formatarStatus } from "@/lib/datetime";
 import { abrirWhatsApp } from "@/lib/whatsapp";
@@ -316,6 +317,13 @@ function AgendamentoFormInner() {
       }));
       await salvarItensComanda(id, itensParaSalvar);
 
+      if (editando && agendamentoId) {
+        registrarAuditoria(perfil.salao_id, perfil.id, "editar_comanda", "agendamento", agendamentoId, null, {
+          total: itensParaSalvar.reduce((soma, i) => soma + i.preco, 0),
+          quantidade_itens: itensParaSalvar.length,
+        });
+      }
+
       router.push("/agenda");
     } finally {
       setSalvando(false);
@@ -378,6 +386,14 @@ function AgendamentoFormInner() {
   async function handleExcluir() {
     if (!agendamentoId) return;
     await deletarAgendamentoRepo(agendamentoId);
+    if (perfil && agendamentoAtual) {
+      registrarAuditoria(perfil.salao_id, perfil.id, "cancelar_agendamento", "agendamento", agendamentoId, {
+        cliente_id: agendamentoAtual.cliente_id,
+        profissional_id: agendamentoAtual.profissional_id,
+        data_hora: agendamentoAtual.data_hora,
+        status: agendamentoAtual.status,
+      });
+    }
     router.push("/agenda");
   }
 

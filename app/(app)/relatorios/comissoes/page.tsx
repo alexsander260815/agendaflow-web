@@ -12,6 +12,7 @@ import {
   salvarFechamentoComissao,
 } from "@/lib/repositories";
 import { profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
+import { registrarAuditoria } from "@/lib/auditoria";
 import Avatar from "@/components/Avatar";
 import { converterIsoParaMillis, formatarMoeda } from "@/lib/datetime";
 import { AgendamentoServico } from "@/lib/types";
@@ -124,6 +125,12 @@ export default function RelatorioComissoesPage() {
     for (const itemId of linha.itemIds) {
       await marcarComissaoFechada(itemId);
     }
+    registrarAuditoria(perfil.salao_id, perfil.id, "fechar_comissao", "fechamento_comissao", linha.profissionalId, null, {
+      profissional_id: linha.profissionalId,
+      nome: linha.nomeProfissional,
+      valor_comissao: linha.valorComissao,
+      quantidade_atendimentos: linha.quantidadeAtendimentos,
+    });
     setFechando(null);
     carregar();
   }

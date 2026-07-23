@@ -20,6 +20,7 @@ import {
 } from "@/lib/repositories";
 import Avatar from "@/components/Avatar";
 import AcessoRestrito from "@/components/AcessoRestrito";
+import { registrarAuditoria } from "@/lib/auditoria";
 import { Papel, PermissaoVisualizacao, Perfil } from "@/lib/types";
 
 type ModoAgenda = "PROPRIA" | "SELECIONADOS" | "EQUIPE";
@@ -106,12 +107,24 @@ export default function GerenciarPermissoesPage() {
     } catch {
       // tabela nova é best-effort — a antiga (fonte de verdade das telas ainda não migradas) já foi salva
     }
+
+    registrarAuditoria(perfil.salao_id, perfil.id, "alterar_escopo_visualizacao", "perfil", pessoaId, null, {
+      agenda_modo: novaAgendaModo,
+      agenda_ve_dono: novoAgendaVeDono,
+      financeiro_modo: novoFinanceiroModo,
+      financeiro_ve_dono: novoFinanceiroVeDono,
+    });
   }
 
   async function handleEscolherPapel(papel: Papel) {
+    if (!perfil) return;
     const papelLegado = papel.nome === "Profissional" ? "PROFISSIONAL" : "ADMIN";
     await definirPapelId(pessoaId, papel.id, papelLegado);
     setPessoa((atual) => (atual ? { ...atual, papel_id: papel.id, papel: papelLegado } : atual));
+    registrarAuditoria(perfil.salao_id, perfil.id, "alterar_papel", "perfil", pessoaId, null, {
+      papel_id: papel.id,
+      papel_nome: papel.nome,
+    });
   }
 
   function temPermissao(alvoId: string, campo: "ve_agenda" | "ve_financeiro"): boolean {
@@ -137,6 +150,12 @@ export default function GerenciarPermissoesPage() {
       // best-effort, ver comentário em salvarModo
     }
 
+    registrarAuditoria(perfil.salao_id, perfil.id, "alterar_concessao_visualizacao", "perfil", alvoId, null, {
+      visualizador_id: pessoaId,
+      categoria: campo === "ve_agenda" ? "AGENDA" : "FINANCEIRO",
+      concedido: valor,
+    });
+
     setPermissoesIndividuais((lista) => {
       const semEsse = lista.filter((p) => p.alvo_id !== alvoId);
       if (!veAgenda && !veFinanceiro) return semEsse;
@@ -150,7 +169,19 @@ export default function GerenciarPermissoesPage() {
   async function handleSalvarComissao() {
     const valor = parseFloat(comissao);
     if (isNaN(valor)) return;
+    const percentualAnterior = pessoa?.comissao_percentual;
     await definirComissaoPercentual(pessoaId, valor);
+    if (perfil) {
+      registrarAuditoria(
+        perfil.salao_id,
+        perfil.id,
+        "alterar_comissao_percentual",
+        "perfil",
+        pessoaId,
+        percentualAnterior != null ? { comissao_percentual: percentualAnterior } : null,
+        { comissao_percentual: valor }
+      );
+    }
   }
 
   async function handleAlternarAtendeClientes(valor: boolean) {
@@ -160,6 +191,11 @@ export default function GerenciarPermissoesPage() {
 
   async function handleRemover() {
     await removerDaEquipe(pessoaId);
+    if (perfil) {
+      registrarAuditoria(perfil.salao_id, perfil.id, "remover_da_equipe", "perfil", pessoaId, null, {
+        nome: pessoa?.nome,
+      });
+    }
     router.push("/equipe");
   }
 

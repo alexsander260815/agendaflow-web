@@ -28,6 +28,7 @@ import { listarPacotes } from "@/lib/repositories/pacoteRepository";
 import { listarAgendamentos } from "@/lib/repositories/agendamentoRepository";
 import { listarAgendamentoServicos } from "@/lib/repositories/agendamentoServicoRepository";
 import { listarEquipe } from "@/lib/repositories/perfilRepository";
+import { registrarAuditoria } from "@/lib/auditoria";
 import { Cliente, ClientePacote, Pacote } from "@/lib/types";
 import { converterIsoParaMillis, formatarDataHora, formatarMoeda, formatarStatus } from "@/lib/datetime";
 
@@ -139,6 +140,12 @@ export default function ClienteFormPage() {
   async function handleExcluir() {
     if (!clienteId) return;
     await deletarCliente(clienteId);
+    if (perfil) {
+      registrarAuditoria(perfil.salao_id, perfil.id, "excluir_cliente", "cliente", clienteId, {
+        nome,
+        telefone,
+      });
+    }
     router.push("/clientes");
   }
 
