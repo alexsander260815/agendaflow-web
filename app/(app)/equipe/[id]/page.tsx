@@ -19,6 +19,7 @@ import {
   salvarPermissoesUsuario,
 } from "@/lib/repositories";
 import Avatar from "@/components/Avatar";
+import AcessoRestrito from "@/components/AcessoRestrito";
 import { Papel, PermissaoVisualizacao, Perfil } from "@/lib/types";
 
 type ModoAgenda = "PROPRIA" | "SELECIONADOS" | "EQUIPE";
@@ -161,6 +162,8 @@ export default function GerenciarPermissoesPage() {
     await removerDaEquipe(pessoaId);
     router.push("/equipe");
   }
+
+  if (perfil && perfil.papel !== "DONO") return <AcessoRestrito />;
 
   if (carregando) {
     return (

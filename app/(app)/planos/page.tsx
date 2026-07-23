@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import AcessoRestrito from "@/components/AcessoRestrito";
 import { supabase } from "@/lib/supabase";
 import { buscarMinhaAssinatura, cancelarMinhaAssinatura, criarAssinatura, listarPlanos } from "@/lib/repositories";
 import { Assinatura, Plano } from "@/lib/types";
@@ -68,6 +69,8 @@ export default function PlanosPage() {
 
   const planoAtual = planos.find((p) => p.id === assinatura?.plano_id);
   const planosFiltrados = planos.filter((p) => p.frequencia === frequencia);
+
+  if (perfil && perfil.papel !== "DONO") return <AcessoRestrito />;
 
   return (
     <div className="mx-auto max-w-3xl p-5 md:p-8">

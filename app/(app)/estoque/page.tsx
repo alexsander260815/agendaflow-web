@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import AcessoRestrito from "@/components/AcessoRestrito";
 import {
   listarProdutos,
   salvarProduto,
@@ -148,6 +149,8 @@ export default function EstoquePage() {
   }
 
   const produtosBaixoEstoque = produtos.filter((p) => p.saldo <= p.minimo);
+
+  if (perfil && perfil.papel !== "DONO") return <AcessoRestrito />;
 
   return (
     <div className="mx-auto max-w-3xl p-5 pb-16 md:p-8">

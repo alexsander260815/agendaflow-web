@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Copy, RefreshCw, Shield, User, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import AcessoRestrito from "@/components/AcessoRestrito";
 import {
   buscarMinhaAssinatura,
   gerarConvite,
@@ -66,6 +67,8 @@ export default function EquipePage() {
       setGerando(false);
     }
   }
+
+  if (perfil && perfil.papel !== "DONO") return <AcessoRestrito />;
 
   return (
     <div className="mx-auto max-w-2xl p-5 md:p-8">

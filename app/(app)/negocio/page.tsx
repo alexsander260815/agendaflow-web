@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Building2, Camera, Clock, MessageSquare, Plus, RotateCcw, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import AcessoRestrito from "@/components/AcessoRestrito";
 import { buscarMeuSalao, atualizarSalao, listarHorarios, salvarHorario, deletarHorario } from "@/lib/repositories";
 import { enviarLogo } from "@/lib/repositories/logoRepository";
 import { Salao, HorarioFuncionamento } from "@/lib/types";
@@ -89,6 +90,8 @@ export default function MeuNegocioPage() {
     await deletarHorario(id);
     if (perfil) setHorarios(await listarHorarios(perfil.salao_id));
   }
+
+  if (perfil && perfil.papel !== "DONO") return <AcessoRestrito />;
 
   if (carregando || !salao) {
     return (
