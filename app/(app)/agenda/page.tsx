@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -154,19 +154,7 @@ export default function AgendaPage() {
     setDataSelecionada((d) => d + 24 * 60 * 60 * 1000);
   }
 
-  const dataInputRef = useRef<HTMLInputElement>(null);
-
-  function abrirCalendario() {
-    const el = dataInputRef.current;
-    if (!el) return;
-    if (typeof el.showPicker === "function") {
-      el.showPicker();
-    } else {
-      el.click();
-    }
-  }
-
-  function handleEscolherData(valor: string) {
+function handleEscolherData(valor: string) {
     if (!valor) return;
     const [ano, mes, dia] = valor.split("-").map(Number);
     setDataSelecionada(new Date(ano, mes - 1, dia, 0, 0, 0, 0).getTime());
@@ -206,22 +194,17 @@ export default function AgendaPage() {
         >
           <ChevronLeft size={18} />
         </button>
-        <button
-          onClick={abrirCalendario}
-          className="w-40 rounded-lg py-1 text-center font-medium capitalize transition-colors hover:bg-surface"
-        >
+        <div className="relative w-40 rounded-lg py-1 text-center font-medium capitalize transition-colors hover:bg-surface">
           {hoje && <span className="mr-1.5 rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">Hoje</span>}
           {dataLabel}
-        </button>
-        <input
-          ref={dataInputRef}
-          type="date"
-          value={dataParaInput(dataSelecionada)}
-          onChange={(e) => handleEscolherData(e.target.value)}
-          className="pointer-events-none absolute h-0 w-0 opacity-0"
-          tabIndex={-1}
-          aria-hidden="true"
-        />
+          <input
+            type="date"
+            value={dataParaInput(dataSelecionada)}
+            onChange={(e) => handleEscolherData(e.target.value)}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            aria-label="Escolher data"
+          />
+        </div>
         <button
           onClick={irParaProximoDia}
           className="rounded-lg p-2 text-muted transition-colors hover:bg-surface hover:text-foreground"
