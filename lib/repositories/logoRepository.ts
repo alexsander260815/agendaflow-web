@@ -12,8 +12,15 @@ export async function enviarLogo(salaoId: string, arquivo: File): Promise<string
   const { data } = supabase.storage.from("logos").getPublicUrl(caminho);
   const urlComCacheBuster = `${data.publicUrl}?t=${Date.now()}`;
 
-  const { error: erroUpdate } = await supabase.from("saloes").update({ logo_url: urlComCacheBuster }).eq("id", salaoId);
+  const { data: linhasAtualizadas, error: erroUpdate } = await supabase
+    .from("saloes")
+    .update({ logo_url: urlComCacheBuster })
+    .eq("id", salaoId)
+    .select("id");
   if (erroUpdate) throw erroUpdate;
+  if (!linhasAtualizadas || linhasAtualizadas.length === 0) {
+    throw new Error("O logo não foi salvo (0 linhas afetadas) — provavelmente uma política de acesso do banco está bloqueando.");
+  }
 
   return urlComCacheBuster;
 }

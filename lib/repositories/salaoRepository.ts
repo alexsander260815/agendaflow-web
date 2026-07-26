@@ -8,11 +8,19 @@ export async function buscarMeuSalao(salaoId: string): Promise<Salao | null> {
 }
 
 export async function atualizarSalao(salao: Salao): Promise<void> {
-  const { error } = await supabase.from("saloes").update(salao).eq("id", salao.id);
+  const { data, error } = await supabase.from("saloes").update(salao).eq("id", salao.id).select("id");
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error(
+      "A alteração não foi salva (0 linhas afetadas) — provavelmente uma política de acesso do banco está bloqueando essa atualização."
+    );
+  }
 }
 
 export async function atualizarLogoUrl(salaoId: string, url: string): Promise<void> {
-  const { error } = await supabase.from("saloes").update({ logo_url: url }).eq("id", salaoId);
+  const { data, error } = await supabase.from("saloes").update({ logo_url: url }).eq("id", salaoId).select("id");
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error("O logo não foi salvo (0 linhas afetadas) — provavelmente uma política de acesso do banco está bloqueando.");
+  }
 }

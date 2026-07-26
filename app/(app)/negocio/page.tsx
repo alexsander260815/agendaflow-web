@@ -76,9 +76,14 @@ export default function MeuNegocioPage() {
     const arquivo = e.target.files?.[0];
     if (!arquivo || !perfil) return;
     setEnviandoLogo(true);
+    setMensagemSalvar(null);
     try {
       const url = await enviarLogo(perfil.salao_id, arquivo);
       atualizarCampo("logo_url", url);
+    } catch (e) {
+      const mensagem = e instanceof Error ? e.message : "Erro desconhecido";
+      setMensagemSalvar({ tipo: "erro", texto: `Não foi possível salvar o logo: ${mensagem}` });
+      setTimeout(() => setMensagemSalvar(null), 5000);
     } finally {
       setEnviandoLogo(false);
       if (inputLogoRef.current) inputLogoRef.current.value = "";
