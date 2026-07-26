@@ -101,6 +101,7 @@ function AgendamentoFormInner() {
 
   const [mostrarSeletorCliente, setMostrarSeletorCliente] = useState(false);
   const [mostrarSeletorServico, setMostrarSeletorServico] = useState(false);
+  const [termoBuscaServico, setTermoBuscaServico] = useState("");
   const [mostrarPagamento, setMostrarPagamento] = useState(false);
   const [diasParaRetorno, setDiasParaRetorno] = useState("");
   const [mostrarExclusao, setMostrarExclusao] = useState(false);
@@ -180,6 +181,7 @@ function AgendamentoFormInner() {
         : { servico, usaPacote: false, clientePacoteId: null, precoCobrado: servico.preco },
     ]);
     setMostrarSeletorServico(false);
+    setTermoBuscaServico("");
   }
 
   function removerServico(index: number) {
@@ -625,37 +627,54 @@ function AgendamentoFormInner() {
 
       {mostrarSeletorServico && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-5 backdrop-blur-sm">
-          <div className="card-elevated max-h-[80vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-surface p-5">
+          <div className="card-elevated flex max-h-[80vh] w-full max-w-sm flex-col rounded-2xl bg-surface p-5">
             <div className="mb-3 flex items-center justify-between">
               <p className="font-medium">Escolher serviço</p>
-              <button onClick={() => setMostrarSeletorServico(false)} className="text-muted hover:text-foreground">
+              <button
+                onClick={() => {
+                  setMostrarSeletorServico(false);
+                  setTermoBuscaServico("");
+                }}
+                className="text-muted hover:text-foreground"
+              >
                 <X size={18} />
               </button>
             </div>
             {servicos.length === 0 ? (
               <p className="text-sm text-muted">Nenhum serviço cadastrado ainda.</p>
             ) : (
-              <div className="flex flex-col gap-1">
-                {servicos.map((s) => {
-                  const pacote = pacotesAtivos.get(s.id);
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => adicionarServico(s)}
-                      className="flex items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-surface-alt"
-                    >
-                      <span>{s.nome}</span>
-                      <span className={pacote ? "text-accent" : s.variavel ? "text-accent" : "text-muted"}>
-                        {pacote
-                          ? `Pacote ativo (${pacote.quantidade_restante}x)`
-                          : s.variavel
-                          ? `A partir de ${formatarMoeda(s.preco)}`
-                          : formatarMoeda(s.preco)}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              <>
+                <input
+                  type="text"
+                  value={termoBuscaServico}
+                  onChange={(e) => setTermoBuscaServico(e.target.value)}
+                  placeholder="Buscar serviço"
+                  className="mb-3 w-full rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+                />
+                <div className="flex flex-col gap-1 overflow-y-auto">
+                  {servicos
+                    .filter((s) => termoBuscaServico.trim() === "" || s.nome.toLowerCase().includes(termoBuscaServico.trim().toLowerCase()))
+                    .map((s) => {
+                      const pacote = pacotesAtivos.get(s.id);
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => adicionarServico(s)}
+                          className="flex items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-surface-alt"
+                        >
+                          <span>{s.nome}</span>
+                          <span className={pacote ? "text-accent" : s.variavel ? "text-accent" : "text-muted"}>
+                            {pacote
+                              ? `Pacote ativo (${pacote.quantidade_restante}x)`
+                              : s.variavel
+                              ? `A partir de ${formatarMoeda(s.preco)}`
+                              : formatarMoeda(s.preco)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                </div>
+              </>
             )}
           </div>
         </div>
