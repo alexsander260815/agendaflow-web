@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { Ban, CalendarDays, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
+  criarBloqueioAgenda,
   listarAgendamentoServicos,
   listarAgendamentos,
   listarBloqueiosAgenda,
@@ -51,6 +52,11 @@ export default function AgendaPage() {
   const [cacheClientes, setCacheClientes] = useState<Map<string, string>>(new Map());
   const [cacheDuracoes, setCacheDuracoes] = useState<Map<string, number>>(new Map());
   const [cacheBloqueios, setCacheBloqueios] = useState<BloqueioAgenda[]>([]);
+  const [mostrarNovoBloqueio, setMostrarNovoBloqueio] = useState(false);
+  const [horaInicioBloqueio, setHoraInicioBloqueio] = useState("00:00");
+  const [horaFimBloqueio, setHoraFimBloqueio] = useState("23:59");
+  const [motivoBloqueio, setMotivoBloqueio] = useState("");
+  const [salvandoBloqueio, setSalvandoBloqueio] = useState(false);
 
   useEffect(() => {
     if (!perfil) return;
@@ -166,6 +172,35 @@ function handleEscolherData(valor: string) {
     const mes = String(d.getMonth() + 1).padStart(2, "0");
     const dia = String(d.getDate()).padStart(2, "0");
     return `${ano}-${mes}-${dia}`;
+  }
+
+  async function handleCriarBloqueio() {
+    if (!perfil || !profissionalSelecionadoId || !motivoBloqueio.trim()) return;
+    setSalvandoBloqueio(true);
+    try {
+      const [hInicio, mInicio] = horaInicioBloqueio.split(":").map(Number);
+      const [hFim, mFim] = horaFimBloqueio.split(":").map(Number);
+      const d = new Date(dataSelecionada);
+      const inicio = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hInicio, mInicio, 0, 0);
+      const fim = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hFim, mFim, 59, 0);
+
+      await criarBloqueioAgenda({
+        salao_id: perfil.salao_id,
+        profissional_id: profissionalSelecionadoId,
+        data_inicio: inicio.toISOString(),
+        data_fim: fim.toISOString(),
+        motivo: motivoBloqueio.trim(),
+        criado_por: perfil.id,
+      });
+
+      setCacheBloqueios(await listarBloqueiosAgenda(perfil.salao_id));
+      setMostrarNovoBloqueio(false);
+      setMotivoBloqueio("");
+      setHoraInicioBloqueio("00:00");
+      setHoraFimBloqueio("23:59");
+    } finally {
+      setSalvandoBloqueio(false);
+    }
   }
 
   function abrirNovoAgendamento(horaAproximada?: number) {
@@ -296,6 +331,16 @@ function handleEscolherData(valor: string) {
         </div>
       )}
 
+      {perfil && profissionalSelecionadoId && (perfil.papel === "DONO" || profissionalSelecionadoId === perfil.id) && (
+        <button
+          onClick={() => setMostrarNovoBloqueio(true)}
+          aria-label="Bloquear horário"
+          className="fixed bottom-44 right-5 flex h-11 w-11 items-center justify-center rounded-full bg-surface text-danger shadow-lg transition-transform hover:scale-105 md:bottom-28"
+        >
+          <Ban size={20} />
+        </button>
+      )}
+
       <button
         onClick={() => abrirNovoAgendamento()}
         aria-label="Novo agendamento"
@@ -303,6 +348,57 @@ function handleEscolherData(valor: string) {
       >
         <Plus size={24} strokeWidth={2.5} />
       </button>
+
+      {mostrarNovoBloqueio && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-5 backdrop-blur-sm">
+          <div className="card-elevated w-full max-w-sm rounded-2xl bg-surface p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <p className="font-medium">Bloquear horário — {dataLabel}</p>
+              <button onClick={() => setMostrarNovoBloqueio(false)} className="text-muted hover:text-foreground">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mb-3 flex gap-2">
+              <div className="flex-1">
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">Das</label>
+                <input
+                  type="time"
+                  value={horaInicioBloqueio}
+                  onChange={(e) => setHoraInicioBloqueio(e.target.value)}
+                  className="w-full rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-accent [color-scheme:dark]"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">Até</label>
+                <input
+                  type="time"
+                  value={horaFimBloqueio}
+                  onChange={(e) => setHoraFimBloqueio(e.target.value)}
+                  className="w-full rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-accent [color-scheme:dark]"
+                />
+              </div>
+            </div>
+
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">Motivo</label>
+            <input
+              type="text"
+              value={motivoBloqueio}
+              onChange={(e) => setMotivoBloqueio(e.target.value)}
+              placeholder="Ex: Consulta médica"
+              className="mb-4 w-full rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+
+            <button
+              onClick={handleCriarBloqueio}
+              disabled={salvandoBloqueio || !motivoBloqueio.trim()}
+              className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {salvandoBloqueio ? "Salvando..." : "Bloquear"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

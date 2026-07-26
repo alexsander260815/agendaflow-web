@@ -31,6 +31,7 @@ export default function MeuNegocioPage() {
   const [enviandoLogo, setEnviandoLogo] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [mostrarNovoHorario, setMostrarNovoHorario] = useState(false);
+  const [mensagemSalvar, setMensagemSalvar] = useState<{ tipo: "sucesso" | "erro"; texto: string } | null>(null);
   const inputLogoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -58,10 +59,16 @@ export default function MeuNegocioPage() {
   async function handleSalvar() {
     if (!salao) return;
     setSalvando(true);
+    setMensagemSalvar(null);
     try {
       await atualizarSalao(salao);
+      setMensagemSalvar({ tipo: "sucesso", texto: "Alterações salvas!" });
+    } catch (e) {
+      const mensagem = e instanceof Error ? e.message : "Erro desconhecido";
+      setMensagemSalvar({ tipo: "erro", texto: `Não foi possível salvar: ${mensagem}` });
     } finally {
       setSalvando(false);
+      setTimeout(() => setMensagemSalvar(null), 5000);
     }
   }
 
@@ -247,6 +254,12 @@ export default function MeuNegocioPage() {
         >
           {salvando ? "Salvando..." : "Salvar alterações"}
         </button>
+
+        {mensagemSalvar && (
+          <p className={`text-sm ${mensagemSalvar.tipo === "sucesso" ? "text-accent" : "text-danger"}`}>
+            {mensagemSalvar.texto}
+          </p>
+        )}
 
         {/* Mensagens */}
         <div className="mt-3 flex items-center gap-2">
