@@ -109,6 +109,7 @@ function AgendamentoFormInner() {
   const [indiceEditandoPreco, setIndiceEditandoPreco] = useState<number | null>(null);
   const [precoEditado, setPrecoEditado] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const [duracaoManual, setDuracaoManual] = useState<number | null>(null);
 
   useEffect(() => {
     if (!perfil) return;
@@ -130,6 +131,7 @@ function AgendamentoFormInner() {
       setDataSelecionada(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
       setHoraSelecionada(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
       setObservacoes(ag.observacoes);
+      setDuracaoManual(ag.duracao_minutos ?? null);
       if (ag.cliente_id) {
         await carregarPacotesDoCliente(ag.cliente_id);
       }
@@ -210,11 +212,31 @@ function AgendamentoFormInner() {
     return new Date(ano, mes - 1, dia, hora, minuto, 0, 0).getTime();
   }
 
+  const duracaoAutomatica = itensComanda.reduce((soma, i) => soma + i.servico.duracao_minutos, 0) || 30;
+  const duracaoEfetiva = duracaoManual ?? duracaoAutomatica;
+
+  function formatarHoraFinal(duracaoMinutos: number): string {
+    const [hora, minuto] = horaSelecionada.split(":").map(Number);
+    const totalMin = hora * 60 + minuto + duracaoMinutos;
+    const totalMinNoDia = ((totalMin % 1440) + 1440) % 1440;
+    const h = Math.floor(totalMinNoDia / 60);
+    const m = totalMinNoDia % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
+  function handleMudarHoraFinal(valor: string) {
+    const [hInicio, mInicio] = horaSelecionada.split(":").map(Number);
+    const [hFim, mFim] = valor.split(":").map(Number);
+    let diferenca = hFim * 60 + mFim - (hInicio * 60 + mInicio);
+    if (diferenca <= 0) diferenca += 24 * 60;
+    setDuracaoManual(diferenca);
+  }
+
   async function verificarConflito(): Promise<string | null> {
     if (!profissionalSelecionadoId) return null;
     if (!perfil) return null;
 
-    const duracaoTotal = itensComanda.reduce((soma, i) => soma + i.servico.duracao_minutos, 0) || 30;
+    const duracaoTotal = duracaoEfetiva;
     const dataHoraMillis = calcularDataHoraMillis();
     const fimNovo = dataHoraMillis + duracaoTotal * 60_000;
 
@@ -238,10 +260,11 @@ function AgendamentoFormInner() {
       const outroInicio = converterIsoParaMillis(outro.data_hora);
       const itensOutro = itensPorAgendamento.get(outro.id) ?? [];
       const duracaoOutro =
-        itensOutro.reduce((soma, i) => {
+        outro.duracao_minutos ??
+        (itensOutro.reduce((soma, i) => {
           const s = servicos.find((s) => s.id === i.servico_id);
           return soma + (s?.duracao_minutos ?? 30);
-        }, 0) || 30;
+        }, 0) || 30);
       const outroFim = outroInicio + duracaoOutro * 60_000;
 
       if (dataHoraMillis < outroFim && fimNovo > outroInicio) {
@@ -292,11 +315,13 @@ function AgendamentoFormInner() {
           status: agendamentoAtual?.status ?? "AGENDADO",
           observacoes,
           forma_pagamento: agendamentoAtual?.forma_pagamento ?? null,
+          duracao_minutos: duracaoManual,
         });
       } else {
         await salvarAgendamentoRepo({
           id,
           salao_id: perfil.salao_id,
+          duracao_minutos: duracaoManual,
           cliente_id: clienteSelecionado.id,
           profissional_id: profissionalFinal,
           data_hora: dataHoraIso,
@@ -457,6 +482,27 @@ function AgendamentoFormInner() {
               className="w-full bg-transparent outline-none [color-scheme:dark]"
             />
           </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className={`flex-1 ${inputClass}`}>
+            <Clock size={16} className="text-muted" />
+            <input
+              type="time"
+              value={formatarHoraFinal(duracaoEfetiva)}
+              onChange={(e) => handleMudarHoraFinal(e.target.value)}
+              className="w-full bg-transparent outline-none [color-scheme:dark]"
+            />
+            <span className="shrink-0 text-xs text-muted">Horário final</span>
+          </div>
+          {duracaoManual !== null && (
+            <button
+              onClick={() => setDuracaoManual(null)}
+              className="flex items-center gap-1 whitespace-nowrap text-xs text-muted transition-colors hover:text-accent"
+            >
+              <RotateCcw size={12} /> Automático
+            </button>
+          )}
         </div>
 
         <div className="mt-2 flex items-center gap-2">

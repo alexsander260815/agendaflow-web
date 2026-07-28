@@ -106,6 +106,7 @@ export interface Agendamento {
   status: StatusAgendamento;
   observacoes: string;
   forma_pagamento: string | null;
+  duracao_minutos: number | null; // sobrescreve a soma das durações dos serviços, quando definida
 }
 
 export interface AgendamentoServico {

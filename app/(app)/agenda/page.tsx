@@ -114,7 +114,8 @@ export default function AgendaPage() {
       })
       .map((a) => {
         const itens = cacheItens.get(a.id) ?? [];
-        const duracaoTotal = itens.reduce((soma, i) => soma + (cacheDuracoes.get(i.servico_id) ?? 30), 0) || 30;
+        const duracaoTotal =
+          a.duracao_minutos ?? (itens.reduce((soma, i) => soma + (cacheDuracoes.get(i.servico_id) ?? 30), 0) || 30);
         const millis = converterIsoParaMillis(a.data_hora);
         const d = new Date(millis);
         return {
@@ -324,7 +325,7 @@ function handleEscolherData(valor: string) {
                 style={{ top, height: altura }}
               >
                 <p className="truncate font-semibold">{b.nomeCliente}</p>
-                {altura > 32 && <p className="truncate opacity-80">{b.nomesServicos}</p>}
+                <p className="truncate opacity-80">{b.nomesServicos}</p>
               </button>
             );
           })}
