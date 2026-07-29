@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check } from "lucide-react";
+import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { RelatorioHeader } from "@/components/RelatorioHeader";
 import {
   listarAgendamentoServicos,
   listarAgendamentos,
+  listarClientes,
   listarEquipe,
   marcarComissaoFechada,
   salvarFechamentoComissao,
@@ -14,8 +15,15 @@ import {
 import { profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
 import { registrarAuditoria } from "@/lib/auditoria";
 import Avatar from "@/components/Avatar";
-import { converterIsoParaMillis, formatarMoeda } from "@/lib/datetime";
+import { converterIsoParaMillis, formatarDataHora, formatarMoeda } from "@/lib/datetime";
 import { AgendamentoServico } from "@/lib/types";
+
+interface ItemComissaoDetalhe {
+  nomeServico: string;
+  nomeCliente: string;
+  dataHora: string;
+  preco: number;
+}
 
 interface LinhaComissao {
   profissionalId: string;
@@ -26,6 +34,7 @@ interface LinhaComissao {
   faturamentoBruto: number;
   valorComissao: number;
   itemIds: string[];
+  itens: ItemComissaoDetalhe[];
 }
 
 export default function RelatorioComissoesPage() {
@@ -35,6 +44,7 @@ export default function RelatorioComissoesPage() {
   const [linhas, setLinhas] = useState<LinhaComissao[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [fechando, setFechando] = useState<LinhaComissao | null>(null);
+  const [expandido, setExpandido] = useState<Set<string>>(new Set());
 
   const filtroAtivo = dataInicio !== "" && dataFim !== "";
 
@@ -48,13 +58,15 @@ export default function RelatorioComissoesPage() {
     if (!perfil) return;
     setCarregando(true);
     try {
-      const [agendamentos, itens, equipe, permitidos] = await Promise.all([
+      const [agendamentos, itens, equipe, clientes, permitidos] = await Promise.all([
         listarAgendamentos(perfil.salao_id),
         listarAgendamentoServicos(perfil.salao_id),
         listarEquipe(perfil.salao_id),
+        listarClientes(perfil.salao_id),
         profissionaisVisiveisFinanceiro(perfil),
       ]);
       const equipeMap = new Map(equipe.map((p) => [p.id, p]));
+      const clientesMap = new Map(clientes.map((c) => [c.id, c.nome]));
 
       let base = agendamentos.filter((a) => a.status === "CONCLUIDO");
       if (permitidos !== null) {
@@ -71,6 +83,7 @@ export default function RelatorioComissoesPage() {
 
       const idsBase = new Set(base.map((a) => a.id));
       const agendamentoPorItem = new Map<string, string>();
+      const agendamentoPorId = new Map(base.map((a) => [a.id, a]));
       base.forEach((a) => agendamentoPorItem.set(a.id, a.profissional_id ?? ""));
 
       let itensRelevantes = itens.filter((i) => idsBase.has(i.agendamento_id));
@@ -92,6 +105,17 @@ export default function RelatorioComissoesPage() {
         const perfilProf = equipeMap.get(profissionalId);
         if (!perfilProf) return;
         const faturamentoBruto = itensDoProf.reduce((s, i) => s + i.preco, 0);
+        const itensDetalhe = itensDoProf
+          .map((i) => {
+            const agendamento = agendamentoPorId.get(i.agendamento_id);
+            return {
+              nomeServico: i.nome_servico,
+              nomeCliente: agendamento ? clientesMap.get(agendamento.cliente_id) ?? "Cliente desconhecido" : "Cliente desconhecido",
+              dataHora: agendamento?.data_hora ?? "",
+              preco: i.preco,
+            };
+          })
+          .sort((a, b) => a.dataHora.localeCompare(b.dataHora));
         resultado.push({
           profissionalId,
           nomeProfissional: perfilProf.nome,
@@ -101,6 +125,7 @@ export default function RelatorioComissoesPage() {
           faturamentoBruto,
           valorComissao: faturamentoBruto * (perfilProf.comissao_percentual / 100),
           itemIds: itensDoProf.map((i) => i.id),
+          itens: itensDetalhe,
         });
       });
 
@@ -113,22 +138,38 @@ export default function RelatorioComissoesPage() {
 
   async function handleFecharComissao(linha: LinhaComissao) {
     if (!perfil) return;
+
+    // Revalida contra o estado atual do banco antes de fechar. A lista que chega
+    // aqui pode vir de uma visão com filtro de data (que propositalmente também
+    // mostra itens já fechados, pra conferência de histórico) — sem essa
+    // revalidação, fechar a partir dessa visão contabilizaria a comissão de novo.
+    const todosItens = await listarAgendamentoServicos(perfil.salao_id);
+    const itensAindaAbertos = todosItens.filter((i) => linha.itemIds.includes(i.id) && !i.comissao_fechada);
+
+    if (itensAindaAbertos.length === 0) {
+      setFechando(null);
+      carregar();
+      return;
+    }
+
+    const valorRevalidado = itensAindaAbertos.reduce((s, i) => s + i.preco, 0) * (linha.comissaoPercentual / 100);
     const agora = new Date().toISOString();
+
     await salvarFechamentoComissao({
       id: crypto.randomUUID(),
       salao_id: perfil.salao_id,
       profissional_id: linha.profissionalId,
       data_inicio: agora,
       data_fim: agora,
-      valor_total: linha.valorComissao,
+      valor_total: valorRevalidado,
     });
-    for (const itemId of linha.itemIds) {
-      await marcarComissaoFechada(itemId);
+    for (const item of itensAindaAbertos) {
+      await marcarComissaoFechada(item.id);
     }
     registrarAuditoria(perfil.salao_id, perfil.id, "fechar_comissao", "fechamento_comissao", linha.profissionalId, null, {
       profissional_id: linha.profissionalId,
       nome: linha.nomeProfissional,
-      valor_comissao: linha.valorComissao,
+      valor_comissao: valorRevalidado,
       quantidade_atendimentos: linha.quantidadeAtendimentos,
     });
     setFechando(null);
@@ -186,6 +227,7 @@ export default function RelatorioComissoesPage() {
       ) : (
         <div className="flex flex-col gap-2">
           {linhas.map((l) => {
+            const aberto = expandido.has(l.profissionalId);
             return (
               <div key={l.profissionalId} className="card-elevated rounded-xl bg-surface p-4">
                 <div className="flex items-center gap-3">
@@ -198,6 +240,41 @@ export default function RelatorioComissoesPage() {
                   </div>
                   <span className="font-semibold tabular-nums text-accent">{formatarMoeda(l.valorComissao)}</span>
                 </div>
+
+                {l.itens.length > 0 && (
+                  <button
+                    onClick={() =>
+                      setExpandido((atual) => {
+                        const novo = new Set(atual);
+                        if (novo.has(l.profissionalId)) novo.delete(l.profissionalId);
+                        else novo.add(l.profissionalId);
+                        return novo;
+                      })
+                    }
+                    className="mt-3 flex w-full items-center justify-center gap-1.5 text-xs text-muted transition-colors hover:text-foreground"
+                  >
+                    {aberto ? "Ocultar serviços" : `Ver serviços (${l.itens.length})`}
+                    {aberto ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
+                )}
+
+                {aberto && (
+                  <div className="mt-2 flex flex-col gap-2 border-t border-border-subtle pt-2">
+                    {l.itens.map((item, i) => (
+                      <div key={i} className="flex items-center justify-between gap-3 text-xs">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{item.nomeServico}</p>
+                          <p className="truncate text-muted">
+                            {item.dataHora ? formatarDataHora(converterIsoParaMillis(item.dataHora)) : ""} ·{" "}
+                            {item.nomeCliente}
+                          </p>
+                        </div>
+                        <span className="shrink-0 tabular-nums">{formatarMoeda(item.preco)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {!filtroAtivo && (
                   <button
                     onClick={() => setFechando(l)}

@@ -5,7 +5,6 @@ export interface Perfil {
   salao_id: string;
   nome: string;
   papel: "DONO" | "ADMIN" | "PROFISSIONAL" | string;
-  ve_financeiro_completo: boolean;
   foto_url: string | null;
   comissao_percentual: number;
   atende_clientes: boolean;

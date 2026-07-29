@@ -28,7 +28,7 @@ interface BlocoAgenda {
   nomesServicos: string;
   inicioMinutosDoDia: number;
   duracaoMinutos: number;
-  concluido: boolean;
+  status: string;
 }
 
 interface BlocoBloqueio {
@@ -124,7 +124,7 @@ export default function AgendaPage() {
           nomesServicos: itens.length ? itens.map((i) => i.nome_servico).join(", ") : "Sem serviços",
           inicioMinutosDoDia: d.getHours() * 60 + d.getMinutes(),
           duracaoMinutos: duracaoTotal,
-          concluido: a.status === "CONCLUIDO",
+          status: a.status,
         };
       });
   }, [cacheAgendamentos, cacheItens, cacheDuracoes, cacheClientes, profissionalSelecionadoId, dataSelecionada]);
@@ -261,7 +261,8 @@ function handleEscolherData(valor: string) {
               <Avatar
                 nome={p.nome}
                 fotoUrl={p.foto_url}
-                className={`h-12 w-12 text-sm transition-all ${
+                shape="square"
+                className={`h-[72px] w-[72px] text-base transition-all ${
                   ativo ? "ring-2 ring-accent ring-offset-2 ring-offset-background" : "opacity-70"
                 }`}
               />
@@ -313,19 +314,23 @@ function handleEscolherData(valor: string) {
           {blocosDoDia.map((b) => {
             const top = ((b.inicioMinutosDoDia - HORA_INICIO * 60) / 60) * PX_POR_HORA;
             const altura = Math.max(30, (b.duracaoMinutos / 60) * PX_POR_HORA - 3);
+            const estilo =
+              b.status === "CONCLUIDO"
+                ? "border-success bg-success text-success-foreground"
+                : b.status === "FALTOU"
+                  ? "border-warning bg-warning text-warning-foreground"
+                  : "border-accent-dark bg-accent text-accent-foreground";
             return (
               <button
                 key={b.id}
                 onClick={() => router.push(`/agenda/${b.id}`)}
-                className={`absolute left-16 right-2 overflow-hidden rounded-lg border-l-[3px] p-2 text-left text-xs shadow-sm transition-transform hover:scale-[1.01] ${
-                  b.concluido
-                    ? "border-muted bg-surface-alt text-muted"
-                    : "border-accent-dark bg-accent text-accent-foreground"
-                }`}
+                className={`absolute left-16 right-2 overflow-hidden rounded-lg border-l-[3px] p-2 text-left text-xs shadow-sm transition-transform hover:scale-[1.01] ${estilo}`}
                 style={{ top, height: altura }}
               >
                 <p className="truncate font-semibold">{b.nomeCliente}</p>
-                <p className="truncate opacity-80">{b.nomesServicos}</p>
+                <p className="truncate opacity-80">
+                  {b.status === "FALTOU" ? `Faltou · ${b.nomesServicos}` : b.nomesServicos}
+                </p>
               </button>
             );
           })}

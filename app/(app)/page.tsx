@@ -7,8 +7,7 @@ import { listarAgendamentos } from "@/lib/repositories/agendamentoRepository";
 import { listarAgendamentoServicos } from "@/lib/repositories/agendamentoServicoRepository";
 import { listarClientes } from "@/lib/repositories/clienteRepository";
 import { listarEquipe } from "@/lib/repositories/perfilRepository";
-import { profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
-import { profissionaisVisiveis } from "@/lib/authorization";
+import { profissionaisVisiveisAgenda, profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
 import Avatar from "@/components/Avatar";
 import { Agendamento, AgendamentoServico } from "@/lib/types";
 import {
@@ -69,7 +68,7 @@ export default function DashboardPage() {
         listarClientes(perfil.salao_id),
         listarEquipe(perfil.salao_id),
         profissionaisVisiveisFinanceiro(perfil),
-        profissionaisVisiveis(perfil, "AGENDA"),
+        profissionaisVisiveisAgenda(perfil),
       ]);
 
       const clientesMap = new Map(clientes.map((c) => [c.id, c.nome]));
@@ -188,8 +187,8 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          <div className="card-elevated gradient-accent rounded-2xl border border-accent/15 bg-surface p-5">
-            <div className="mb-1 flex items-center gap-1.5 text-accent">
+          <div className="card-elevated gradient-dashboard-accent rounded-2xl border border-dashboard-accent/20 bg-surface p-5">
+            <div className="mb-1 flex items-center gap-1.5 text-dashboard-accent-light">
               <Sparkles size={14} />
               <p className="text-xs font-semibold uppercase tracking-wide">Faturamento hoje</p>
             </div>
@@ -209,18 +208,18 @@ export default function DashboardPage() {
 
           <div className="card-elevated rounded-2xl bg-surface p-4">
             <div className="mb-4 flex items-center gap-2">
-              <TrendingUp size={16} className="text-accent" />
+              <TrendingUp size={16} className="text-dashboard-accent-light" />
               <p className="font-medium">Faturamento dos últimos 7 dias</p>
             </div>
             <div className="flex items-end gap-2.5" style={{ height: 110 }}>
               {receita7Dias.map((p, i) => (
                 <div key={i} className="flex flex-1 flex-col items-center gap-2">
                   <div
-                    className={`w-full rounded-full transition-all ${p.ehHoje ? "bg-accent" : "bg-surface-alt"}`}
+                    className={`w-full rounded-full transition-all ${p.ehHoje ? "bg-dashboard-accent" : "bg-surface-alt"}`}
                     style={{ height: `${Math.max(4, (p.valor / maiorValor) * 84)}px` }}
                     title={formatarMoeda(p.valor)}
                   />
-                  <span className={`text-xs ${p.ehHoje ? "font-medium text-accent" : "text-muted"}`}>
+                  <span className={`text-xs ${p.ehHoje ? "font-medium text-dashboard-accent-light" : "text-muted"}`}>
                     {p.label}
                   </span>
                 </div>
@@ -230,7 +229,7 @@ export default function DashboardPage() {
 
           <div className="card-elevated rounded-2xl bg-surface p-4">
             <div className="mb-3 flex items-center gap-2">
-              <CalendarClock size={16} className="text-accent" />
+              <CalendarClock size={16} className="text-dashboard-accent-light" />
               <p className="font-medium">Hoje ({agendamentosHoje.length})</p>
             </div>
             {agendamentosHoje.length === 0 ? (
@@ -240,7 +239,7 @@ export default function DashboardPage() {
                 {agendamentosHoje.map((a) => (
                   <div key={a.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
                     <div className="flex h-10 w-12 shrink-0 flex-col items-center justify-center rounded-lg bg-surface-alt">
-                      <span className="text-xs font-semibold text-accent">{a.horario}</span>
+                      <span className="text-xs font-semibold text-dashboard-accent-light">{a.horario}</span>
                     </div>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{a.nomeCliente}</p>
@@ -255,7 +254,7 @@ export default function DashboardPage() {
           {mostrarTopProfissionais && (
             <div className="card-elevated rounded-2xl bg-surface p-4">
               <div className="mb-3 flex items-center gap-2">
-                <Trophy size={16} className="text-accent" />
+                <Trophy size={16} className="text-dashboard-accent-light" />
                 <p className="font-medium">Top profissionais (mês)</p>
               </div>
               {topProfissionais.length === 0 ? (
@@ -270,7 +269,7 @@ export default function DashboardPage() {
                           <p className="truncate text-sm font-medium">{p.nome}</p>
                           <p className="text-xs text-muted">{p.atendimentos} atendimento(s)</p>
                         </div>
-                        <span className="text-sm font-medium tabular-nums text-accent">
+                        <span className="text-sm font-medium tabular-nums text-dashboard-accent-light">
                           {formatarMoeda(p.faturamento)}
                         </span>
                       </div>

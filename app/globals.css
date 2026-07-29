@@ -13,6 +13,14 @@
   --accent-dark: #0e7490; /* TurquesaEscura */
   --accent-foreground: #06251f;
   --danger: #f87171;
+  --success: #4ade94; /* SucessoEscuro */
+  --success-foreground: #06341f;
+  --warning: #f4c05e; /* AlertaEscuro */
+  --warning-foreground: #3d2e0a;
+  /* Identidade visual exclusiva do Dashboard — não usar fora dele */
+  --dashboard-accent: #6366f1; /* Indigo */
+  --dashboard-accent-light: #818cf8; /* IndigoClaro */
+  --dashboard-accent-foreground: #ffffff;
   --shadow-color: 8 20 45;
 }
 
@@ -28,6 +36,13 @@
   --color-accent-dark: var(--accent-dark);
   --color-accent-foreground: var(--accent-foreground);
   --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-dashboard-accent: var(--dashboard-accent);
+  --color-dashboard-accent-light: var(--dashboard-accent-light);
+  --color-dashboard-accent-foreground: var(--dashboard-accent-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -47,6 +62,10 @@ body {
 
 .gradient-accent {
   background: linear-gradient(135deg, rgba(23, 195, 178, 0.16), rgba(11, 25, 48, 0));
+}
+
+.gradient-dashboard-accent {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(11, 25, 48, 0));
 }
 
 ::selection {
