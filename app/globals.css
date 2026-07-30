@@ -17,6 +17,10 @@
   --success-foreground: #06341f;
   --warning: #f4c05e; /* AlertaEscuro */
   --warning-foreground: #3d2e0a;
+  --info: #60a5fa; /* InfoEscuro — status "Agendado" na Agenda */
+  --info-foreground: #0b2244;
+  --finalizado: #a78bfa; /* FinalizadoEscuro — status "Concluído" na Agenda */
+  --finalizado-foreground: #241c42;
   /* Identidade visual exclusiva do Dashboard — não usar fora dele */
   --dashboard-accent: #6366f1; /* Indigo */
   --dashboard-accent-light: #818cf8; /* IndigoClaro */
@@ -40,6 +44,10 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-finalizado: var(--finalizado);
+  --color-finalizado-foreground: var(--finalizado-foreground);
   --color-dashboard-accent: var(--dashboard-accent);
   --color-dashboard-accent-light: var(--dashboard-accent-light);
   --color-dashboard-accent-foreground: var(--dashboard-accent-foreground);

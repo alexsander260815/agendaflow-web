@@ -315,11 +315,15 @@ function handleEscolherData(valor: string) {
             const top = ((b.inicioMinutosDoDia - HORA_INICIO * 60) / 60) * PX_POR_HORA;
             const altura = Math.max(30, (b.duracaoMinutos / 60) * PX_POR_HORA - 3);
             const estilo =
-              b.status === "CONCLUIDO"
+              b.status === "CONFIRMADO"
                 ? "border-success bg-success text-success-foreground"
-                : b.status === "FALTOU"
-                  ? "border-warning bg-warning text-warning-foreground"
-                  : "border-accent-dark bg-accent text-accent-foreground";
+                : b.status === "CONCLUIDO"
+                  ? "border-finalizado bg-finalizado text-finalizado-foreground"
+                  : b.status === "CANCELADO"
+                    ? "border-danger bg-danger text-white"
+                    : b.status === "FALTOU"
+                      ? "border-warning bg-warning text-warning-foreground"
+                      : "border-info bg-info text-info-foreground";
             return (
               <button
                 key={b.id}
@@ -329,7 +333,11 @@ function handleEscolherData(valor: string) {
               >
                 <p className="truncate font-semibold">{b.nomeCliente}</p>
                 <p className="truncate opacity-80">
-                  {b.status === "FALTOU" ? `Faltou · ${b.nomesServicos}` : b.nomesServicos}
+                  {b.status === "FALTOU"
+                    ? `Faltou · ${b.nomesServicos}`
+                    : b.status === "CANCELADO"
+                      ? `Cancelado · ${b.nomesServicos}`
+                      : b.nomesServicos}
                 </p>
               </button>
             );

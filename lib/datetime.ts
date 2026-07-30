@@ -83,6 +83,10 @@ export function formatarStatus(status: string): string {
       return "Faltou";
     case "AGENDADO":
       return "Agendado";
+    case "CONFIRMADO":
+      return "Confirmado";
+    case "CANCELADO":
+      return "Cancelado";
     default:
       return status;
   }

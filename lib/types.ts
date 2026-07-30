@@ -9,6 +9,7 @@ export interface Perfil {
   comissao_percentual: number;
   atende_clientes: boolean;
   papel_id: string | null;
+  whatsapp_phone_number_id?: string | null;
 }
 
 export interface Papel {
@@ -94,7 +95,7 @@ export interface ClientePacote {
   quantidade_restante: number;
 }
 
-export type StatusAgendamento = "AGENDADO" | "CONCLUIDO" | "FALTOU";
+export type StatusAgendamento = "AGENDADO" | "CONFIRMADO" | "CONCLUIDO" | "FALTOU" | "CANCELADO";
 
 export interface Agendamento {
   id: string;
@@ -106,6 +107,7 @@ export interface Agendamento {
   observacoes: string;
   forma_pagamento: string | null;
   duracao_minutos: number | null; // sobrescreve a soma das durações dos serviços, quando definida
+  lembrete_enviado?: boolean; // controlado pela Edge Function enviar-lembretes, não pelo app
 }
 
 export interface AgendamentoServico {

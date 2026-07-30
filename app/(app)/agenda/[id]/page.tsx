@@ -46,9 +46,11 @@ const inputClass =
   "flex items-center gap-2.5 rounded-xl border border-border-subtle bg-surface px-4 py-3 transition-colors focus-within:border-accent";
 
 const STATUS_ESTILO: Record<string, string> = {
-  AGENDADO: "bg-accent/12 text-accent",
-  CONCLUIDO: "bg-accent-light/15 text-accent-light",
-  FALTOU: "bg-danger/12 text-danger",
+  AGENDADO: "bg-info/12 text-info",
+  CONFIRMADO: "bg-success/12 text-success",
+  CONCLUIDO: "bg-finalizado/12 text-finalizado",
+  FALTOU: "bg-warning/12 text-warning",
+  CANCELADO: "bg-danger/12 text-danger",
 };
 
 export default function AgendamentoFormPage() {
@@ -256,7 +258,7 @@ function AgendamentoFormInner() {
     for (const outro of todos) {
       if (outro.id === agendamentoId) continue;
       if (outro.profissional_id !== profissionalSelecionadoId) continue;
-      if (outro.status === "FALTOU") continue;
+      if (outro.status === "FALTOU" || outro.status === "CANCELADO") continue;
       const outroInicio = converterIsoParaMillis(outro.data_hora);
       const itensOutro = itensPorAgendamento.get(outro.id) ?? [];
       const duracaoOutro =
@@ -401,6 +403,18 @@ function AgendamentoFormInner() {
   async function handleMarcarFalta() {
     if (!agendamentoAtual || !agendamentoId) return;
     await atualizarAgendamento(agendamentoId, { ...agendamentoAtual, status: "FALTOU" });
+    router.push("/agenda");
+  }
+
+  async function handleMarcarConfirmado() {
+    if (!agendamentoAtual || !agendamentoId) return;
+    await atualizarAgendamento(agendamentoId, { ...agendamentoAtual, status: "CONFIRMADO" });
+    setAgendamentoAtual({ ...agendamentoAtual, status: "CONFIRMADO" });
+  }
+
+  async function handleMarcarCancelado() {
+    if (!agendamentoAtual || !agendamentoId) return;
+    await atualizarAgendamento(agendamentoId, { ...agendamentoAtual, status: "CANCELADO" });
     router.push("/agenda");
   }
 
@@ -598,23 +612,39 @@ function AgendamentoFormInner() {
                 {formatarStatus(agendamentoAtual.status)}
               </span>
             </div>
-            {agendamentoAtual.status === "AGENDADO" && (
+            {(agendamentoAtual.status === "AGENDADO" || agendamentoAtual.status === "CONFIRMADO") && (
               <>
+                {agendamentoAtual.status === "AGENDADO" && (
+                  <button
+                    onClick={handleMarcarConfirmado}
+                    className="flex items-center justify-center gap-1.5 rounded-xl bg-info px-4 py-3 font-medium text-info-foreground transition-opacity hover:opacity-90"
+                  >
+                    <Check size={16} /> Confirmar Agendamento
+                  </button>
+                )}
                 <button
                   onClick={() => setMostrarPagamento(true)}
-                  className="flex items-center justify-center gap-1.5 rounded-xl bg-accent px-4 py-3 font-medium text-accent-foreground transition-opacity hover:opacity-90"
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-finalizado px-4 py-3 font-medium text-finalizado-foreground transition-opacity hover:opacity-90"
                 >
                   <Check size={16} /> Marcar como Concluído
                 </button>
                 <button
                   onClick={handleMarcarFalta}
-                  className="rounded-xl border border-border-subtle px-4 py-3 text-sm transition-colors hover:bg-surface"
+                  className="rounded-xl border border-border-subtle px-4 py-3 text-sm text-warning transition-colors hover:bg-surface"
                 >
                   Marcar como Falta
                 </button>
+                <button
+                  onClick={handleMarcarCancelado}
+                  className="rounded-xl border border-border-subtle px-4 py-3 text-sm text-danger transition-colors hover:bg-surface"
+                >
+                  Cancelar Agendamento
+                </button>
               </>
             )}
-            {agendamentoAtual.status !== "AGENDADO" && (
+            {(agendamentoAtual.status === "CONCLUIDO" ||
+              agendamentoAtual.status === "FALTOU" ||
+              agendamentoAtual.status === "CANCELADO") && (
               <button
                 onClick={handleReabrir}
                 className="flex items-center justify-center gap-1.5 rounded-xl border border-border-subtle px-4 py-3 text-sm transition-colors hover:bg-surface"
