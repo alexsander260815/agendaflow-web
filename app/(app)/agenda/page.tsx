@@ -78,7 +78,12 @@ export default function AgendaPage() {
         listarBloqueiosAgenda(perfil.salao_id),
       ]);
 
-      const equipeFiltrada = idsPermitidos === null ? equipeQueAtende : equipeQueAtende.filter((p) => idsPermitidos.includes(p.id));
+      const equipeFiltradaBase = idsPermitidos === null ? equipeQueAtende : equipeQueAtende.filter((p) => idsPermitidos.includes(p.id));
+      const equipeFiltrada = [...equipeFiltradaBase].sort((a, b) => {
+        if (a.id === perfil.id) return -1;
+        if (b.id === perfil.id) return 1;
+        return 0;
+      });
       setEquipe(equipeFiltrada);
       setProfissionalSelecionadoId((atual) => {
         if (atual && equipeFiltrada.some((p) => p.id === atual)) return atual;
