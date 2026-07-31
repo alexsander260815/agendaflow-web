@@ -8,6 +8,7 @@ import { listarServicos } from "@/lib/repositories/servicoRepository";
 import { deletarPacote, listarPacotes, salvarPacote } from "@/lib/repositories/pacoteRepository";
 import { Pacote, Servico } from "@/lib/types";
 import { formatarMoeda } from "@/lib/datetime";
+import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 function formatarPreco(preco: number, variavel: boolean): string {
   return variavel ? `A partir de ${formatarMoeda(preco)}` : formatarMoeda(preco);
@@ -47,7 +48,10 @@ export default function ServicosPage() {
   return (
     <div className="mx-auto max-w-3xl p-5 md:p-8">
       <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Serviços</h1>
+        <div className="flex items-center">
+          <BotaoVoltarInicio />
+          <h1 className="text-2xl font-semibold tracking-tight">Serviços</h1>
+        </div>
         {aba === "servicos" ? (
           <Link
             href="/servicos/novo"

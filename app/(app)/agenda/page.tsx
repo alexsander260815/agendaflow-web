@@ -17,6 +17,7 @@ import { profissionaisVisiveisAgenda } from "@/lib/permissoes";
 import Avatar from "@/components/Avatar";
 import { Agendamento, AgendamentoServico, BloqueioAgenda, Perfil } from "@/lib/types";
 import { converterIsoParaMillis, inicioDoDia } from "@/lib/datetime";
+import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 const HORA_INICIO = 7;
 const HORA_FIM = 21;
@@ -228,6 +229,9 @@ function handleEscolherData(valor: string) {
 
   return (
     <div className="mx-auto max-w-3xl p-5 pb-28 md:p-8">
+      <div className="mb-2 md:hidden">
+        <BotaoVoltarInicio />
+      </div>
       <div className="mb-5 flex items-center justify-center gap-1">
         <button
           onClick={irParaDiaAnterior}

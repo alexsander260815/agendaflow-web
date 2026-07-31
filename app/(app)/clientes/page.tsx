@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { listarClientes } from "@/lib/repositories/clienteRepository";
 import { Cliente } from "@/lib/types";
 import { corAvatar, iniciais } from "@/lib/avatar";
+import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 export default function ClientesPage() {
   const { perfil } = useAuth();
@@ -30,7 +31,10 @@ export default function ClientesPage() {
   return (
     <div className="mx-auto max-w-3xl p-5 md:p-8">
       <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Clientes</h1>
+        <div className="flex items-center">
+          <BotaoVoltarInicio />
+          <h1 className="text-2xl font-semibold tracking-tight">Clientes</h1>
+        </div>
         <Link
           href="/clientes/novo"
           className="flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"

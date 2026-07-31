@@ -8,6 +8,7 @@ import { profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
 import Avatar from "@/components/Avatar";
 import { Agendamento, AgendamentoServico } from "@/lib/types";
 import { converterIsoParaMillis, formatarMoeda } from "@/lib/datetime";
+import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 type Periodo = "HOJE" | "SEMANA" | "MES";
 
@@ -160,7 +161,10 @@ export default function FinanceiroPage() {
 
   return (
     <div className="mx-auto max-w-3xl p-5 md:p-8">
-      <h1 className="mb-5 text-2xl font-semibold tracking-tight">Financeiro</h1>
+      <div className="mb-5 flex items-center">
+        <BotaoVoltarInicio />
+        <h1 className="text-2xl font-semibold tracking-tight">Financeiro</h1>
+      </div>
 
       <div className="mb-5 flex gap-1 rounded-xl bg-surface p-1">
         {(["HOJE", "SEMANA", "MES"] as const).map((p) => (
