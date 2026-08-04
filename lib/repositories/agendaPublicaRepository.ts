@@ -32,6 +32,15 @@ export interface ProfissionalPublico {
   fotoUrl: string | null;
 }
 
+export interface DadosPixCobranca {
+  chave: string;
+  nomeBeneficiario: string;
+  cidade: string;
+  valor: number;
+  recebedorNome: string;
+  recebedorTipo: "SALAO" | "PROFISSIONAL";
+}
+
 export interface InfoAgendaPublica {
   salao: SalaoPublico;
   servicos: ServicoPublico[];
@@ -68,16 +77,21 @@ export async function criarAgendamentoPublico(params: {
   clienteNome: string;
   clienteTelefone: string;
   dataHoraISO: string;
-}): Promise<{ agendamentoId: string; cobraSinal: boolean }> {
+}): Promise<{ agendamentoId: string; cobraSinal: boolean; pix: DadosPixCobranca | null }> {
   const data = await chamarAgendaPublica<{
     sucesso?: true;
     agendamentoId?: string;
     cobraSinal?: boolean;
+    pix?: DadosPixCobranca | null;
     erro?: string;
   }>({
     acao: "criar",
     ...params,
   });
   if (data.erro || !data.agendamentoId) throw new Error(data.erro ?? "Não foi possível criar o agendamento.");
-  return { agendamentoId: data.agendamentoId, cobraSinal: data.cobraSinal ?? false };
+  return {
+    agendamentoId: data.agendamentoId,
+    cobraSinal: data.cobraSinal ?? false,
+    pix: data.pix ?? null,
+  };
 }

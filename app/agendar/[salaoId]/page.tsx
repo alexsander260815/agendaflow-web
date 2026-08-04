@@ -7,6 +7,7 @@ import {
   buscarHorariosDisponiveis,
   buscarInfoAgendaPublica,
   criarAgendamentoPublico,
+  DadosPixCobranca,
   InfoAgendaPublica,
   ProfissionalPublico,
   ServicoPublico,
@@ -78,6 +79,7 @@ export default function AgendarPublicoPage({ params }: { params: Promise<{ salao
   const [pixCopiaECola, setPixCopiaECola] = useState<string | null>(null);
   const [pixQrDataUrl, setPixQrDataUrl] = useState<string | null>(null);
   const [pixCopiado, setPixCopiado] = useState(false);
+  const [pixDados, setPixDados] = useState<DadosPixCobranca | null>(null);
 
   useEffect(() => {
     buscarInfoAgendaPublica(salaoId)
@@ -121,14 +123,16 @@ export default function AgendarPublicoPage({ params }: { params: Promise<{ salao
         dataHoraISO: horarioEscolhido,
       });
 
-      if (resultado.cobraSinal && info.salao.chavePix) {
+      if (resultado.cobraSinal && resultado.pix) {
+        const dadosPix = resultado.pix;
         const copiaECola = montarPixCopiaECola({
-          chave: info.salao.chavePix,
-          nomeBeneficiario: info.salao.pixNomeBeneficiario || info.salao.nome,
-          cidade: info.salao.pixCidade || "BRASIL",
-          valor: info.salao.sinalValor,
+          chave: dadosPix.chave,
+          nomeBeneficiario: dadosPix.nomeBeneficiario,
+          cidade: dadosPix.cidade,
+          valor: dadosPix.valor,
           identificador: resultado.agendamentoId,
         });
+        setPixDados(dadosPix);
         setPixCopiaECola(copiaECola);
         QRCode.toDataURL(copiaECola, { width: 260, margin: 1 })
           .then(setPixQrDataUrl)
@@ -173,8 +177,9 @@ export default function AgendarPublicoPage({ params }: { params: Promise<{ salao
       <div className="mx-auto flex min-h-screen max-w-md flex-col items-center gap-4 p-6 text-center">
         <h1 className="mt-4 text-xl font-semibold">Falta só o sinal</h1>
         <p className="text-sm text-muted">
-          Pague {formatarMoeda(info.salao.sinalValor)} via Pix pra garantir seu horário. O salão confirma o
-          recebimento manualmente.
+          Pague {formatarMoeda(pixDados?.valor ?? info.salao.sinalValor)} via Pix para{" "}
+          <strong>{pixDados?.recebedorNome ?? info.salao.nome}</strong> e garanta seu horário. O recebimento é
+          confirmado manualmente.
         </p>
         {pixQrDataUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
