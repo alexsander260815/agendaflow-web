@@ -16,6 +16,7 @@ export interface SalaoPublico {
   chavePix: string | null;
   pixNomeBeneficiario: string | null;
   pixCidade: string | null;
+  temaVisual: string | null;
 }
 
 export interface ServicoPublico {

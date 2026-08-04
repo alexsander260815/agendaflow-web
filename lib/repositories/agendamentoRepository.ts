@@ -31,3 +31,8 @@ export async function deletarAgendamento(id: string): Promise<void> {
   const { error } = await supabase.from("agendamentos").delete().eq("id", id);
   if (error) throw error;
 }
+
+export async function confirmarSinal(id: string): Promise<void> {
+  const { error } = await supabase.from('agendamentos').update({ sinal_status: 'CONFIRMADO' }).eq('id', id);
+  if (error) throw error;
+}

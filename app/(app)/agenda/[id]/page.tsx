@@ -8,6 +8,7 @@ import {
   Check,
   Clock,
   MessageCircle,
+  Landmark,
   Pencil,
   Plus,
   RotateCcw,
@@ -35,6 +36,7 @@ import {
   buscarClientePacote,
   atualizarQuantidadeClientePacote,
   marcarComoDescontado,
+  confirmarSinal,
 } from "@/lib/repositories";
 import { criarRetornoCliente, listarBloqueiosAgenda } from "@/lib/repositories";
 import { registrarAuditoria } from "@/lib/auditoria";
@@ -111,6 +113,7 @@ function AgendamentoFormInner() {
   const [indiceEditandoPreco, setIndiceEditandoPreco] = useState<number | null>(null);
   const [precoEditado, setPrecoEditado] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const [confirmandoSinal, setConfirmandoSinal] = useState(false);
   const [duracaoManual, setDuracaoManual] = useState<number | null>(null);
 
   useEffect(() => {
@@ -400,6 +403,17 @@ function AgendamentoFormInner() {
     router.push("/agenda");
   }
 
+  async function handleConfirmarSinal() {
+    if (!agendamentoAtual) return;
+    setConfirmandoSinal(true);
+    try {
+      await confirmarSinal(agendamentoAtual.id);
+      await carregarAgendamento(agendamentoAtual.id);
+    } finally {
+      setConfirmandoSinal(false);
+    }
+  }
+
   async function handleMarcarFalta() {
     if (!agendamentoAtual || !agendamentoId) return;
     await atualizarAgendamento(agendamentoId, { ...agendamentoAtual, status: "FALTOU" });
@@ -606,6 +620,26 @@ function AgendamentoFormInner() {
 
         {editando && agendamentoAtual && (
           <>
+            {agendamentoAtual.sinal_status === 'PENDENTE' && (
+              <div className='card-elevated rounded-2xl border border-warning/35 bg-warning/10 p-4'>
+                <div className='flex items-start gap-3'>
+                  <Landmark size={20} className='mt-0.5 shrink-0 text-warning' />
+                  <div className='flex-1'>
+                    <p className='font-medium text-warning'>Sinal aguardando confirmação</p>
+                    <p className='mt-1 text-sm'>Valor: {formatarMoeda(agendamentoAtual.sinal_valor ?? 0)}</p>
+                    <p className='text-xs text-muted'>Recebedor: {agendamentoAtual.sinal_nome_beneficiario || (agendamentoAtual.sinal_destino === 'PROFISSIONAL' ? 'Profissional' : 'Salão')}</p>
+                    <button onClick={handleConfirmarSinal} disabled={confirmandoSinal} className='mt-3 rounded-xl bg-warning px-4 py-2.5 text-sm font-medium text-warning-foreground disabled:opacity-60'>
+                      {confirmandoSinal ? 'Confirmando...' : 'Confirmar sinal recebido'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {agendamentoAtual.sinal_status === 'CONFIRMADO' && (
+              <div className='flex items-center gap-2 rounded-xl bg-success/10 px-4 py-3 text-sm text-success'>
+                <Check size={17} /> Sinal de {formatarMoeda(agendamentoAtual.sinal_valor ?? 0)} confirmado
+              </div>
+            )}
             <div className="mt-1 flex items-center gap-2 text-sm text-muted">
               Status:
               <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_ESTILO[agendamentoAtual.status] ?? "bg-surface-alt"}`}>

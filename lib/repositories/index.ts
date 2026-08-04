@@ -23,3 +23,5 @@ export * from "./planoRepository";
 export * from "./assinaturaRepository";
 export * from "./painelAdminRepository";
 export * from "./suporteRepository";
+export * from './despesaRepository';
+export * from './fichaTecnicaRepository';

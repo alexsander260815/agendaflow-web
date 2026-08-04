@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Building2, Camera, Clock, MessageSquare, Plus, RotateCcw, X } from "lucide-react";
+import { Building2, Camera, Clock, Landmark, MessageSquare, Palette, Plus, RotateCcw, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import AcessoRestrito from "@/components/AcessoRestrito";
 import { buscarMeuSalao, atualizarSalao, listarHorarios, salvarHorario, deletarHorario } from "@/lib/repositories";
 import { enviarLogo } from "@/lib/repositories/logoRepository";
 import { Salao, HorarioFuncionamento } from "@/lib/types";
+import { aplicarTemaVisual, TEMAS_VISUAIS } from '@/lib/theme';
 import {
   mensagemPadraoCancelamento,
   mensagemPadraoConfirmacao,
@@ -251,6 +252,107 @@ export default function MeuNegocioPage() {
             />
           )}
         </div>
+
+        <section className='card-elevated rounded-2xl bg-surface p-4'>
+          <div className='mb-4 flex items-center gap-2'>
+            <Landmark size={17} className='text-accent' />
+            <div>
+              <p className='font-medium'>Cobrança de sinal</p>
+              <p className='text-xs text-muted'>O Pix é mostrado ao cliente ao concluir o agendamento online.</p>
+            </div>
+            <div className='ml-auto'>
+              <Toggle valor={salao.sinal_ativo} onMudar={(v) => atualizarCampo('sinal_ativo', v)} />
+            </div>
+          </div>
+
+          {salao.sinal_ativo && (
+            <div className='flex flex-col gap-4'>
+              <Campo label='Valor do sinal (R$)'>
+                <input
+                  type='number'
+                  min='0'
+                  step='0.01'
+                  value={salao.sinal_valor || ''}
+                  onChange={(e) => atualizarCampo('sinal_valor', Number(e.target.value) || 0)}
+                  className={inputClass}
+                />
+              </Campo>
+
+              <div>
+                <p className={labelClass}>Quem recebe o sinal</p>
+                <div className='mt-2 grid grid-cols-2 gap-2'>
+                  {[
+                    { id: 'SALAO', nome: 'Pix do salão' },
+                    { id: 'PROFISSIONAL', nome: 'Pix do profissional' },
+                  ].map((opcao) => (
+                    <button
+                      key={opcao.id}
+                      type='button'
+                      onClick={() => atualizarCampo('sinal_destino', opcao.id)}
+                      className={`rounded-xl border px-3 py-3 text-sm transition-colors ${
+                        salao.sinal_destino === opcao.id
+                          ? 'border-accent bg-accent/15 text-accent'
+                          : 'border-border-subtle text-muted hover:bg-surface-alt'
+                      }`}
+                    >
+                      {opcao.nome}
+                    </button>
+                  ))}
+                </div>
+                {salao.sinal_destino === 'PROFISSIONAL' && (
+                  <p className='mt-2 text-xs text-muted'>Cada colaborador cadastra o próprio Pix em Meu Perfil. Se faltar, o Pix do salão será usado.</p>
+                )}
+              </div>
+
+              <Campo label={salao.sinal_destino === 'PROFISSIONAL' ? 'Chave Pix do salão (reserva)' : 'Chave Pix'}>
+                <input value={salao.chave_pix ?? ''} onChange={(e) => atualizarCampo('chave_pix', e.target.value)} className={inputClass} />
+              </Campo>
+              <div className='grid gap-3 sm:grid-cols-2'>
+                <Campo label='Nome do beneficiário'>
+                  <input value={salao.pix_nome_beneficiario ?? ''} onChange={(e) => atualizarCampo('pix_nome_beneficiario', e.target.value)} className={inputClass} />
+                </Campo>
+                <Campo label='Cidade do Pix'>
+                  <input value={salao.pix_cidade ?? ''} onChange={(e) => atualizarCampo('pix_cidade', e.target.value)} className={inputClass} />
+                </Campo>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className='card-elevated rounded-2xl bg-surface p-4'>
+          <div className='mb-4 flex items-center gap-2'>
+            <Palette size={17} className='text-accent' />
+            <div>
+              <p className='font-medium'>Cores do aplicativo</p>
+              <p className='text-xs text-muted'>A cor escolhida vale no web e na agenda pública.</p>
+            </div>
+          </div>
+          <div className='grid gap-2 sm:grid-cols-2'>
+            {TEMAS_VISUAIS.map((tema) => {
+              const selecionado = (salao.tema_visual || 'azul_grafite') === tema.id;
+              return (
+                <button
+                  key={tema.id}
+                  type='button'
+                  onClick={() => {
+                    atualizarCampo('tema_visual', tema.id);
+                    aplicarTemaVisual(tema.id);
+                  }}
+                  className={`relative rounded-xl border p-3 text-left transition-all ${
+                    selecionado ? 'border-accent bg-accent/10' : 'border-border-subtle hover:bg-surface-alt'
+                  }`}
+                >
+                  {tema.novo && <span className='absolute right-2 top-2 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold text-accent'>NOVO</span>}
+                  <div className='mb-2 flex gap-1.5'>
+                    {tema.cores.map((cor) => <span key={cor} className='h-6 w-6 rounded-full border border-white/15' style={{ backgroundColor: cor }} />)}
+                  </div>
+                  <p className='text-sm font-medium'>{tema.nome}</p>
+                  <p className='text-xs text-muted'>{tema.descricao}</p>
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
         <button
           onClick={handleSalvar}

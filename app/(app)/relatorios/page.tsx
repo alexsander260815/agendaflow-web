@@ -7,12 +7,19 @@ import {
   History,
   ListChecks,
   Percent,
+  Trophy,
   TrendingUp,
   User,
   Wallet,
 } from "lucide-react";
 
 const RELATORIOS = [
+  {
+    href: '/relatorios/ranking-clientes',
+    icon: Trophy,
+    titulo: 'Ranking de Clientes',
+    descricao: 'Clientes que mais visitam e mais faturam.',
+  },
   {
     href: "/relatorios/historico-atendimentos",
     icon: History,

@@ -8,6 +8,7 @@ import {
   BellRing,
   Boxes,
   Building2,
+  Calculator,
   CalendarDays,
   CalendarOff,
   CreditCard,
@@ -18,6 +19,7 @@ import {
   Menu,
   Scissors,
   Shield,
+  Target,
   User,
   Users,
   Wallet,
@@ -25,13 +27,16 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import Avatar from "@/components/Avatar";
-import { listarMensagensSuporte } from "@/lib/repositories";
+import AssistenteAgenda from '@/components/AssistenteAgenda';
+import { buscarMeuSalao, listarMensagensSuporte } from "@/lib/repositories";
+import { aplicarTemaVisual } from '@/lib/theme';
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
   donoOnly?: boolean;
+  financeiroOnly?: boolean;
   badge?: number;
 }
 
@@ -46,6 +51,8 @@ const ITENS_SECUNDARIOS: NavItem[] = [
   { href: "/retorno-clientes", label: "Retorno de Clientes", icon: BellRing },
   { href: "/bloqueios-agenda", label: "Bloqueios de Agenda", icon: CalendarOff },
   { href: "/financeiro", label: "Financeiro", icon: Wallet },
+  { href: '/meta-faturamento', label: 'Meta de Faturamento', icon: Target, financeiroOnly: true },
+  { href: '/calculadora-preco', label: 'Calculadora de Preço', icon: Calculator, donoOnly: true },
   { href: "/estoque", label: "Estoque", icon: Boxes, donoOnly: true },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
   { href: "/equipe", label: "Equipe", icon: HeartHandshake, donoOnly: true },
@@ -69,6 +76,13 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
+    if (!perfil) return;
+    buscarMeuSalao(perfil.salao_id)
+      .then((salao) => aplicarTemaVisual(salao?.tema_visual))
+      .catch(() => aplicarTemaVisual());
+  }, [perfil]);
+
+  useEffect(() => {
     if (!souSuperAdmin) return;
     listarMensagensSuporte()
       .then((mensagens) => setContagemSuporte(mensagens.filter((m) => m.status === "ABERTO").length))
@@ -90,7 +104,7 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
   }
 
   const podeVer = (item: NavItem) => {
-    if (item.href === "/financeiro" || item.href === "/relatorios") return mostrarFinanceiro;
+    if (item.href === "/financeiro" || item.href === "/relatorios" || item.financeiroOnly) return mostrarFinanceiro;
     if (item.donoOnly) return perfil.papel === "DONO";
     return true;
   };
@@ -142,6 +156,7 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
 
       {/* Conteúdo */}
       <main className="flex-1 overflow-y-auto pb-24 md:pb-0">{children}</main>
+      <AssistenteAgenda />
 
       {/* Bottom tabs mobile */}
       <nav className="fixed bottom-0 left-0 right-0 z-20 flex border-t border-border-subtle bg-surface/95 backdrop-blur-md md:hidden">

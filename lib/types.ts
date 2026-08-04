@@ -10,6 +10,9 @@ export interface Perfil {
   atende_clientes: boolean;
   papel_id: string | null;
   whatsapp_phone_number_id?: string | null;
+  chave_pix?: string | null;
+  pix_nome_beneficiario?: string | null;
+  pix_cidade?: string | null;
 }
 
 export interface Papel {
@@ -108,6 +111,13 @@ export interface Agendamento {
   forma_pagamento: string | null;
   duracao_minutos: number | null; // sobrescreve a soma das durações dos serviços, quando definida
   lembrete_enviado?: boolean; // controlado pela Edge Function enviar-lembretes, não pelo app
+  sinal_status?: 'NAO_APLICAVEL' | 'PENDENTE' | 'CONFIRMADO' | string;
+  sinal_destino?: 'SALAO' | 'PROFISSIONAL' | string | null;
+  sinal_recebedor_perfil_id?: string | null;
+  sinal_valor?: number;
+  sinal_chave_pix?: string | null;
+  sinal_nome_beneficiario?: string | null;
+  sinal_cidade?: string | null;
 }
 
 export interface AgendamentoServico {
@@ -214,6 +224,29 @@ export interface FechamentoComissao {
   valor_total: number;
 }
 
+export interface Despesa {
+  id: string;
+  salao_id: string;
+  descricao: string;
+  valor: number;
+  data_despesa: string;
+  categoria: 'ALUGUEL' | 'PRODUTOS_INSUMOS' | 'CONTAS_FIXAS' | 'MARKETING' | 'MANUTENCAO' | 'OUTROS' | string;
+}
+
+export interface FichaTecnica {
+  id: string;
+  salao_id: string;
+  cliente_id: string;
+  profissional_id: string;
+  agendamento_id: string | null;
+  formula: string;
+  observacoes: string;
+  foto_antes_url: string | null;
+  foto_depois_url: string | null;
+  assinatura_url: string | null;
+  criado_em: string;
+}
+
 export interface Convite {
   id: string;
   salao_id: string;
@@ -248,6 +281,17 @@ export interface Salao {
   mensagem_remarcacao: string | null;
   mensagem_cancelamento: string | null;
   mensagem_retorno: string | null;
+  tema_visual: string;
+  meta_faturamento_mensal: number | null;
+  custo_fixo_mensal: number | null;
+  atendimentos_estimados_mes: number | null;
+  margem_lucro_desejada: number | null;
+  sinal_ativo: boolean;
+  sinal_valor: number;
+  chave_pix: string | null;
+  pix_nome_beneficiario: string | null;
+  pix_cidade: string | null;
+  sinal_destino: 'SALAO' | 'PROFISSIONAL' | string;
 }
 
 export interface HorarioFuncionamento {

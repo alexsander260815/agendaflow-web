@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, Wallet } from "lucide-react";
+import Link from 'next/link';
+import { BarChart3, ChevronDown, Wallet } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { listarAgendamentoServicos, listarAgendamentos, listarEquipe } from "@/lib/repositories";
 import { profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
@@ -165,6 +166,12 @@ export default function FinanceiroPage() {
         <BotaoVoltarInicio />
         <h1 className="text-2xl font-semibold tracking-tight">Financeiro</h1>
       </div>
+
+      <Link href='/financeiro/gestao' className='gradient-accent card-elevated mb-5 flex items-center gap-3 rounded-2xl border border-accent/20 bg-surface p-4 transition-colors hover:bg-surface-alt'>
+        <span className='rounded-xl bg-accent/15 p-2.5 text-accent'><BarChart3 size={20} /></span>
+        <span className='flex-1'><span className='block font-medium'>Gestão financeira completa</span><span className='block text-xs text-muted'>Fluxo de caixa, despesas, resumos, comissões e DRE</span></span>
+        <span className='text-accent'>→</span>
+      </Link>
 
       <div className="mb-5 flex gap-1 rounded-xl bg-surface p-1">
         {(["HOJE", "SEMANA", "MES"] as const).map((p) => (

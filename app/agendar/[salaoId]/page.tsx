@@ -13,6 +13,7 @@ import {
   ServicoPublico,
 } from "@/lib/repositories/agendaPublicaRepository";
 import { montarPixCopiaECola } from "@/lib/pix";
+import { aplicarTemaVisual } from '@/lib/theme';
 
 const DIAS_VISIVEIS = 14;
 const DIAS_SEMANA_CURTO = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -87,6 +88,10 @@ export default function AgendarPublicoPage({ params }: { params: Promise<{ salao
       .catch((e) => setErroCarregamento(e instanceof Error ? e.message : "Erro ao carregar."))
       .finally(() => setCarregando(false));
   }, [salaoId]);
+
+  useEffect(() => {
+    if (info?.salao) aplicarTemaVisual(info.salao.temaVisual);
+  }, [info]);
 
   const precisaEscolherProfissional = info?.salao?.clienteEscolheProfissional ?? false;
 

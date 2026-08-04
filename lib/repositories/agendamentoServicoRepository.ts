@@ -45,6 +45,15 @@ export async function marcarComissaoFechada(itemId: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function marcarComissoesFechadas(itemIds: string[]): Promise<void> {
+  if (itemIds.length === 0) return;
+  const { error } = await supabase
+    .from('agendamento_servicos')
+    .update({ comissao_fechada: true })
+    .in('id', itemIds);
+  if (error) throw error;
+}
+
 export async function deletarItensPorAgendamento(agendamentoId: string): Promise<void> {
   const { error } = await supabase.from("agendamento_servicos").delete().eq("agendamento_id", agendamentoId);
   if (error) throw error;

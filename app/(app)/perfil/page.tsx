@@ -1,9 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Camera, UserRound } from "lucide-react";
+import { Camera, Landmark, UserRound } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { definirAtendeClientes } from "@/lib/repositories/perfilRepository";
+import { atualizarPixPerfil, definirAtendeClientes } from "@/lib/repositories/perfilRepository";
 import { enviarFotoPerfil } from "@/lib/repositories/fotoPerfilRepository";
 import { corAvatar, iniciais } from "@/lib/avatar";
 
@@ -18,6 +18,11 @@ export default function MeuPerfilPage() {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [alternando, setAlternando] = useState(false);
+  const [chavePix, setChavePix] = useState(() => perfil?.chave_pix ?? '');
+  const [nomeBeneficiario, setNomeBeneficiario] = useState(() => perfil?.pix_nome_beneficiario ?? perfil?.nome ?? '');
+  const [cidadePix, setCidadePix] = useState(() => perfil?.pix_cidade ?? '');
+  const [salvandoPix, setSalvandoPix] = useState(false);
+  const [pixSalvo, setPixSalvo] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   if (!perfil) return null;
@@ -48,6 +53,22 @@ export default function MeuPerfilPage() {
       await refrescarPerfil();
     } finally {
       setAlternando(false);
+    }
+  }
+
+  async function handleSalvarPix() {
+    if (!perfil) return;
+    setSalvandoPix(true);
+    setPixSalvo(false);
+    setErro(null);
+    try {
+      await atualizarPixPerfil(perfil.id, chavePix, nomeBeneficiario, cidadePix);
+      await refrescarPerfil();
+      setPixSalvo(true);
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Erro ao salvar o Pix.');
+    } finally {
+      setSalvandoPix(false);
     }
   }
 
@@ -116,6 +137,31 @@ export default function MeuPerfilPage() {
             </button>
           </div>
         )}
+
+        <section className='card-elevated mt-2 w-full rounded-2xl bg-surface p-4'>
+          <div className='mb-4 flex items-start gap-2'>
+            <Landmark size={18} className='mt-0.5 text-accent' />
+            <div>
+              <p className='font-medium'>Meu Pix para receber sinais</p>
+              <p className='text-xs text-muted'>Será usado quando o salão escolher cobrar o sinal direto para o profissional.</p>
+            </div>
+          </div>
+          <div className='flex flex-col gap-3'>
+            <label className='text-xs font-medium uppercase tracking-wide text-muted'>Chave Pix
+              <input value={chavePix} onChange={(e) => setChavePix(e.target.value)} placeholder='CPF, CNPJ, e-mail, telefone ou chave aleatória' className='mt-1.5 w-full rounded-xl border border-border-subtle bg-background px-3 py-3 text-sm outline-none focus:border-accent' />
+            </label>
+            <label className='text-xs font-medium uppercase tracking-wide text-muted'>Nome do beneficiário
+              <input value={nomeBeneficiario} onChange={(e) => setNomeBeneficiario(e.target.value)} className='mt-1.5 w-full rounded-xl border border-border-subtle bg-background px-3 py-3 text-sm outline-none focus:border-accent' />
+            </label>
+            <label className='text-xs font-medium uppercase tracking-wide text-muted'>Cidade
+              <input value={cidadePix} onChange={(e) => setCidadePix(e.target.value)} className='mt-1.5 w-full rounded-xl border border-border-subtle bg-background px-3 py-3 text-sm outline-none focus:border-accent' />
+            </label>
+            <button onClick={handleSalvarPix} disabled={salvandoPix} className='rounded-xl bg-accent px-4 py-3 text-sm font-medium text-accent-foreground disabled:opacity-60'>
+              {salvandoPix ? 'Salvando...' : 'Salvar meu Pix'}
+            </button>
+            {pixSalvo && <p className='text-center text-xs text-success'>Pix salvo com sucesso.</p>}
+          </div>
+        </section>
       </div>
     </div>
   );

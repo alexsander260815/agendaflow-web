@@ -32,3 +32,20 @@ export async function definirPapelId(perfilId: string, papelId: string, papelLeg
   const { error } = await supabase.from("perfis").update({ papel_id: papelId, papel: papelLegado }).eq("id", perfilId);
   if (error) throw error;
 }
+
+export async function atualizarPixPerfil(
+  perfilId: string,
+  chavePix: string,
+  nomeBeneficiario: string,
+  cidade: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('perfis')
+    .update({
+      chave_pix: chavePix.trim() || null,
+      pix_nome_beneficiario: nomeBeneficiario.trim() || null,
+      pix_cidade: cidade.trim() || null,
+    })
+    .eq('id', perfilId);
+  if (error) throw error;
+}

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   Cake,
   ClipboardList,
+  FileSignature,
   History,
   Package,
   Phone,
@@ -234,6 +235,13 @@ export default function ClienteFormPage() {
 
         {editando && (
           <>
+            <button
+              onClick={() => router.push(`/clientes/${clienteId}/fichas`)}
+              className='card-elevated mt-3 flex items-center gap-3 rounded-xl bg-surface p-4 text-left transition-colors hover:bg-surface-alt'
+            >
+              <span className='flex h-10 w-10 items-center justify-center rounded-full bg-accent/15 text-accent'><FileSignature size={19} /></span>
+              <span className='flex-1'><span className='block font-medium'>Fichas técnicas</span><span className='block text-xs text-muted'>Fórmulas, fotos de antes e depois e assinatura</span></span>
+            </button>
             <div className="mt-3 flex items-center gap-2">
               <Package size={16} className="text-accent" />
               <p className="font-medium">Pacotes do cliente</p>
