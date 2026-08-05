@@ -77,6 +77,10 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!perfil) return;
+    if (perfil.tema_visual) {
+      aplicarTemaVisual(perfil.tema_visual);
+      return;
+    }
     buscarMeuSalao(perfil.salao_id)
       .then((salao) => aplicarTemaVisual(salao?.tema_visual))
       .catch(() => aplicarTemaVisual());

@@ -323,8 +323,8 @@ export default function MeuNegocioPage() {
           <div className='mb-4 flex items-center gap-2'>
             <Palette size={17} className='text-accent' />
             <div>
-              <p className='font-medium'>Cores do aplicativo</p>
-              <p className='text-xs text-muted'>A cor escolhida vale no web e na agenda pública.</p>
+              <p className='font-medium'>Cor padrão do salão</p>
+              <p className='text-xs text-muted'>Vale pra agenda pública e pra quem ainda não escolheu a própria cor em Meu Perfil.</p>
             </div>
           </div>
           <div className='grid gap-2 sm:grid-cols-2'>

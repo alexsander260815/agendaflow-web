@@ -13,6 +13,7 @@ export interface Perfil {
   chave_pix?: string | null;
   pix_nome_beneficiario?: string | null;
   pix_cidade?: string | null;
+  tema_visual?: string | null;
 }
 
 export interface Papel {

@@ -33,6 +33,11 @@ export async function definirPapelId(perfilId: string, papelId: string, papelLeg
   if (error) throw error;
 }
 
+export async function atualizarTemaVisual(perfilId: string, temaId: string): Promise<void> {
+  const { error } = await supabase.from('perfis').update({ tema_visual: temaId }).eq('id', perfilId);
+  if (error) throw error;
+}
+
 export async function atualizarPixPerfil(
   perfilId: string,
   chavePix: string,

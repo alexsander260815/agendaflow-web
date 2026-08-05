@@ -17,6 +17,8 @@ export const TEMAS_VISUAIS: TemaVisual[] = [
   { id: 'lilas_lavanda', nome: 'Lilás & Lavanda', descricao: 'Leve e acolhedor', cores: ['#1d1930', '#514773', '#b8a7f2'], novo: true },
   { id: 'terracota_creme', nome: 'Terracota & Creme', descricao: 'Quente e natural', cores: ['#291b16', '#70483a', '#e3936f'], novo: true },
   { id: 'petroleo_coral', nome: 'Petróleo & Coral', descricao: 'Contemporâneo e vibrante', cores: ['#102328', '#28525c', '#ff806b'], novo: true },
+  { id: 'neon_cyber', nome: 'Neon Cyber', descricao: 'Rosa, ciano e roxo elétrico', cores: ['#0a0014', '#b026ff', '#ff2e9e'], novo: true },
+  { id: 'neon_lima', nome: 'Neon Lima', descricao: 'Verde-limão vibrante com pink', cores: ['#0a0f00', '#ff3ec9', '#ccff00'], novo: true },
 ];
 
 export function aplicarTemaVisual(tema?: string | null): void {

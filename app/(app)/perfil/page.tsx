@@ -1,11 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Camera, Landmark, UserRound } from "lucide-react";
+import { Camera, Landmark, Palette, UserRound } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { atualizarPixPerfil, definirAtendeClientes } from "@/lib/repositories/perfilRepository";
+import { atualizarPixPerfil, atualizarTemaVisual, definirAtendeClientes } from "@/lib/repositories/perfilRepository";
 import { enviarFotoPerfil } from "@/lib/repositories/fotoPerfilRepository";
 import { corAvatar, iniciais } from "@/lib/avatar";
+import { aplicarTemaVisual, TEMAS_VISUAIS } from "@/lib/theme";
 
 const LABEL_PAPEL: Record<string, string> = {
   DONO: "Dono(a)",
@@ -23,6 +24,7 @@ export default function MeuPerfilPage() {
   const [cidadePix, setCidadePix] = useState(() => perfil?.pix_cidade ?? '');
   const [salvandoPix, setSalvandoPix] = useState(false);
   const [pixSalvo, setPixSalvo] = useState(false);
+  const [salvandoTema, setSalvandoTema] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   if (!perfil) return null;
@@ -53,6 +55,18 @@ export default function MeuPerfilPage() {
       await refrescarPerfil();
     } finally {
       setAlternando(false);
+    }
+  }
+
+  async function handleEscolherTema(temaId: string) {
+    if (!perfil) return;
+    setSalvandoTema(temaId);
+    aplicarTemaVisual(temaId);
+    try {
+      await atualizarTemaVisual(perfil.id, temaId);
+      await refrescarPerfil();
+    } finally {
+      setSalvandoTema(null);
     }
   }
 
@@ -137,6 +151,39 @@ export default function MeuPerfilPage() {
             </button>
           </div>
         )}
+
+        <section className='card-elevated mt-2 w-full rounded-2xl bg-surface p-4'>
+          <div className='mb-4 flex items-start gap-2'>
+            <Palette size={18} className='mt-0.5 text-accent' />
+            <div>
+              <p className='font-medium'>Minha cor</p>
+              <p className='text-xs text-muted'>Só muda a cor da sua conta — o resto da equipe pode usar outra.</p>
+            </div>
+          </div>
+          <div className='grid gap-2 sm:grid-cols-2'>
+            {TEMAS_VISUAIS.map((tema) => {
+              const selecionado = (perfil.tema_visual || 'azul_grafite') === tema.id;
+              return (
+                <button
+                  key={tema.id}
+                  type='button'
+                  onClick={() => handleEscolherTema(tema.id)}
+                  disabled={salvandoTema !== null}
+                  className={`relative rounded-xl border p-3 text-left transition-all disabled:opacity-60 ${
+                    selecionado ? 'border-accent bg-accent/10' : 'border-border-subtle hover:bg-surface-alt'
+                  }`}
+                >
+                  {tema.novo && <span className='absolute right-2 top-2 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold text-accent'>NOVO</span>}
+                  <div className='mb-2 flex gap-1.5'>
+                    {tema.cores.map((cor) => <span key={cor} className='h-6 w-6 rounded-full border border-white/15' style={{ backgroundColor: cor }} />)}
+                  </div>
+                  <p className='text-sm font-medium'>{tema.nome}</p>
+                  <p className='text-xs text-muted'>{tema.descricao}</p>
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
         <section className='card-elevated mt-2 w-full rounded-2xl bg-surface p-4'>
           <div className='mb-4 flex items-start gap-2'>
