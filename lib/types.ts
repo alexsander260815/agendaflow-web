@@ -14,6 +14,11 @@ export interface Perfil {
   pix_nome_beneficiario?: string | null;
   pix_cidade?: string | null;
   tema_visual?: string | null;
+  meta_faturamento_mensal?: number | null;
+  mensagem_confirmacao?: string | null;
+  mensagem_remarcacao?: string | null;
+  mensagem_cancelamento?: string | null;
+  mensagem_retorno?: string | null;
 }
 
 export interface Papel {
@@ -293,6 +298,7 @@ export interface Salao {
   pix_nome_beneficiario: string | null;
   pix_cidade: string | null;
   sinal_destino: 'SALAO' | 'PROFISSIONAL' | string;
+  forcar_mensagem_padrao: boolean;
 }
 
 export interface HorarioFuncionamento {

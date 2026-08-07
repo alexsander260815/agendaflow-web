@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { buscarMeuSalao, listarClientes, listarRetornosPendentes, marcarStatusRetorno } from "@/lib/repositories";
+import { buscarMeuSalao, listarClientes, listarEquipe, listarRetornosPendentes, marcarStatusRetorno } from "@/lib/repositories";
 import { profissionaisVisiveisAgenda } from "@/lib/permissoes";
-import { mensagemPadraoRetorno, montarMensagemRetorno } from "@/lib/mensagens";
+import { mensagemEfetiva, mensagemPadraoRetorno, montarMensagemRetorno } from "@/lib/mensagens";
 import { abrirWhatsApp } from "@/lib/whatsapp";
-import { Cliente, RetornoCliente } from "@/lib/types";
+import { Cliente, Perfil, RetornoCliente, Salao } from "@/lib/types";
 
 interface RetornoItem {
   id: string;
@@ -15,13 +15,15 @@ interface RetornoItem {
   nomeServico: string;
   dataRetornoMillis: number;
   diasRestantes: number;
+  profissionalId: string | null;
 }
 
 export default function RetornoClientesPage() {
   const { perfil } = useAuth();
   const [itens, setItens] = useState<RetornoItem[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [mensagemBase, setMensagemBase] = useState(mensagemPadraoRetorno());
+  const [salao, setSalao] = useState<Salao | null>(null);
+  const [equipe, setEquipe] = useState<Perfil[]>([]);
 
   useEffect(() => {
     if (!perfil) return;
@@ -33,13 +35,15 @@ export default function RetornoClientesPage() {
     if (!perfil) return;
     setCarregando(true);
     try {
-      const [visiveis, retornos, clientes, salao] = await Promise.all([
+      const [visiveis, retornos, clientes, negocio, time] = await Promise.all([
         profissionaisVisiveisAgenda(perfil),
         listarRetornosPendentes(perfil.salao_id),
         listarClientes(perfil.salao_id),
         buscarMeuSalao(perfil.salao_id),
+        listarEquipe(perfil.salao_id),
       ]);
-      setMensagemBase(salao?.mensagem_retorno || mensagemPadraoRetorno());
+      setSalao(negocio);
+      setEquipe(time);
 
       const clientesMap = new Map<string, Cliente>(clientes.map((c) => [c.id, c]));
       const agora = Date.now();
@@ -61,6 +65,7 @@ export default function RetornoClientesPage() {
             nomeServico: r.nome_servico,
             dataRetornoMillis: dataMillis,
             diasRestantes: dias,
+            profissionalId: r.profissional_id,
           };
         })
         .filter((item): item is RetornoItem => item !== null)
@@ -75,8 +80,11 @@ export default function RetornoClientesPage() {
   }
 
   async function handleAvisar(item: RetornoItem) {
+    if (!salao) return;
+    const profissional = item.profissionalId ? equipe.find((p) => p.id === item.profissionalId) : null;
+    const base = mensagemEfetiva("mensagem_retorno", salao, profissional, mensagemPadraoRetorno);
     const mensagem = montarMensagemRetorno(
-      mensagemBase,
+      base,
       item.clienteNome,
       item.nomeServico,
       item.diasRestantes >= 0 ? 0 : -item.diasRestantes

@@ -46,6 +46,7 @@ import { Agendamento, AgendamentoServico, Cliente, ClientePacote, ItemComanda, P
 import { converterIsoParaMillis, converterMillisParaIso, formatarMoeda, formatarStatus } from "@/lib/datetime";
 import { abrirWhatsApp } from "@/lib/whatsapp";
 import { montarPixCopiaECola } from "@/lib/pix";
+import { mensagemEfetiva, mensagemPadraoConfirmacao, substituirMarcadores } from "@/lib/mensagens";
 
 const inputClass =
   "flex items-center gap-2.5 rounded-xl border border-border-subtle bg-surface px-4 py-3 transition-colors focus-within:border-accent";
@@ -194,6 +195,22 @@ function AgendamentoFormInner() {
     } finally {
       setGerandoSinal(false);
     }
+  }
+
+  function handleEnviarConfirmacao() {
+    if (!agendamentoAtual || !clienteSelecionado || !salao) return;
+    const profissional = agendamentoAtual.profissional_id
+      ? equipe.find((p) => p.id === agendamentoAtual.profissional_id)
+      : null;
+    const base = mensagemEfetiva("mensagem_confirmacao", salao, profissional, mensagemPadraoConfirmacao);
+    const mensagem = substituirMarcadores(
+      base,
+      clienteSelecionado.nome,
+      converterIsoParaMillis(agendamentoAtual.data_hora),
+      profissional?.nome ?? "",
+      itensComanda.map((i) => i.servico.nome).join(", ")
+    );
+    abrirWhatsApp(clienteSelecionado.telefone, mensagem);
   }
 
   async function carregarAgendamento(id: string) {
@@ -777,12 +794,7 @@ function AgendamentoFormInner() {
             )}
             {clienteSelecionado && (
               <button
-                onClick={() =>
-                  abrirWhatsApp(
-                    clienteSelecionado.telefone,
-                    `Olá, ${clienteSelecionado.nome.split(" ")[0]}! Confirmando seu horário.`
-                  )
-                }
+                onClick={handleEnviarConfirmacao}
                 className="flex items-center justify-center gap-1.5 rounded-xl border border-border-subtle px-4 py-3 text-sm transition-colors hover:bg-surface"
               >
                 <MessageCircle size={15} /> Enviar confirmação no WhatsApp

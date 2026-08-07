@@ -38,6 +38,24 @@ export async function atualizarTemaVisual(perfilId: string, temaId: string): Pro
   if (error) throw error;
 }
 
+export async function atualizarMetaFaturamentoPerfil(perfilId: string, meta: number | null): Promise<void> {
+  const { error } = await supabase.from('perfis').update({ meta_faturamento_mensal: meta }).eq('id', perfilId);
+  if (error) throw error;
+}
+
+export async function atualizarMinhasMensagens(
+  perfilId: string,
+  mensagens: {
+    mensagem_confirmacao: string | null;
+    mensagem_remarcacao: string | null;
+    mensagem_cancelamento: string | null;
+    mensagem_retorno: string | null;
+  }
+): Promise<void> {
+  const { error } = await supabase.from('perfis').update(mensagens).eq('id', perfilId);
+  if (error) throw error;
+}
+
 export async function atualizarPixPerfil(
   perfilId: string,
   chavePix: string,
