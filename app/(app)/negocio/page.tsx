@@ -1,21 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Building2, Camera, Clock, Landmark, MessageSquare, Palette, Plus, RotateCcw, X } from "lucide-react";
+import { Building2, Camera, Clock, Palette, Plus, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import AcessoRestrito from "@/components/AcessoRestrito";
 import { buscarMeuSalao, atualizarSalao, listarHorarios, salvarHorario, deletarHorario } from "@/lib/repositories";
 import { enviarLogo } from "@/lib/repositories/logoRepository";
 import { Salao, HorarioFuncionamento } from "@/lib/types";
 import { aplicarTemaVisual, TEMAS_VISUAIS } from '@/lib/theme';
-import {
-  mensagemPadraoCancelamento,
-  mensagemPadraoConfirmacao,
-  mensagemPadraoRemarcacao,
-  mensagemPadraoRetorno,
-  montarMensagemRetorno,
-  substituirMarcadores,
-} from "@/lib/mensagens";
 
 const DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const DURACOES = [15, 30, 45, 60, 90, 120];
@@ -250,45 +242,6 @@ export default function MeuNegocioPage() {
 
         <section className='card-elevated rounded-2xl bg-surface p-4'>
           <div className='mb-4 flex items-center gap-2'>
-            <Landmark size={17} className='text-accent' />
-            <div>
-              <p className='font-medium'>Cobrança de sinal</p>
-              <p className='text-xs text-muted'>O Pix é mostrado ao cliente ao concluir o agendamento online.</p>
-            </div>
-            <div className='ml-auto'>
-              <Toggle valor={salao.sinal_ativo} onMudar={(v) => atualizarCampo('sinal_ativo', v)} />
-            </div>
-          </div>
-
-          {salao.sinal_ativo && (
-            <div className='flex flex-col gap-4'>
-              <Campo label='Valor do sinal (R$)'>
-                <input
-                  type='number'
-                  min='0'
-                  step='0.01'
-                  value={salao.sinal_valor ? Number(salao.sinal_valor).toFixed(2) : ''}
-                  onChange={(e) => atualizarCampo('sinal_valor', Number(e.target.value) || 0)}
-                  className={inputClass}
-                />
-              </Campo>
-
-              <p className='text-xs text-muted'>
-                Cada profissional pode cadastrar o próprio Pix em Meu Perfil — se cadastrar, o sinal dos agendamentos dele cai direto lá. Quem não cadastrar usa o Pix do salão abaixo, que também serve de reserva.
-              </p>
-
-              <Campo label='Chave Pix do salão'>
-                <input value={salao.chave_pix ?? ''} onChange={(e) => atualizarCampo('chave_pix', e.target.value)} className={inputClass} />
-              </Campo>
-              <Campo label='Nome do beneficiário'>
-                <input value={salao.pix_nome_beneficiario ?? ''} onChange={(e) => atualizarCampo('pix_nome_beneficiario', e.target.value)} className={inputClass} />
-              </Campo>
-            </div>
-          )}
-        </section>
-
-        <section className='card-elevated rounded-2xl bg-surface p-4'>
-          <div className='mb-4 flex items-center gap-2'>
             <Palette size={17} className='text-accent' />
             <div>
               <p className='font-medium'>Cor padrão do salão</p>
@@ -335,53 +288,6 @@ export default function MeuNegocioPage() {
             {mensagemSalvar.texto}
           </p>
         )}
-
-        {/* Mensagens */}
-        <div className="mt-3 flex items-center gap-2">
-          <MessageSquare size={16} className="text-accent" />
-          <p className="font-medium">Mensagens automáticas</p>
-        </div>
-
-        <CampoMensagem
-          titulo="Confirmação"
-          valor={salao.mensagem_confirmacao ?? mensagemPadraoConfirmacao()}
-          padrao={mensagemPadraoConfirmacao()}
-          onMudar={(v) => atualizarCampo("mensagem_confirmacao", v)}
-        />
-        <CampoMensagem
-          titulo="Remarcação"
-          valor={salao.mensagem_remarcacao ?? mensagemPadraoRemarcacao()}
-          padrao={mensagemPadraoRemarcacao()}
-          onMudar={(v) => atualizarCampo("mensagem_remarcacao", v)}
-        />
-        <CampoMensagem
-          titulo="Cancelamento"
-          valor={salao.mensagem_cancelamento ?? mensagemPadraoCancelamento()}
-          padrao={mensagemPadraoCancelamento()}
-          onMudar={(v) => atualizarCampo("mensagem_cancelamento", v)}
-        />
-
-        <div className="card-elevated rounded-xl bg-surface p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-medium">Retorno de cliente</p>
-            <button
-              onClick={() => atualizarCampo("mensagem_retorno", mensagemPadraoRetorno())}
-              className="flex items-center gap-1 text-xs text-muted transition-colors hover:text-accent"
-            >
-              <RotateCcw size={11} /> Restaurar padrão
-            </button>
-          </div>
-          <p className="mb-2 text-xs text-muted">Marcadores: {"{nome}"}, {"{servico}"}, {"{dias}"}</p>
-          <textarea
-            value={salao.mensagem_retorno ?? mensagemPadraoRetorno()}
-            onChange={(e) => atualizarCampo("mensagem_retorno", e.target.value)}
-            rows={4}
-            className="w-full rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-accent"
-          />
-          <p className="mt-2 whitespace-pre-line rounded-lg bg-surface-alt p-3 text-xs text-muted">
-            {montarMensagemRetorno(salao.mensagem_retorno ?? mensagemPadraoRetorno(), "Maria", "Manicure", 15)}
-          </p>
-        </div>
 
         {/* Horários */}
         <div className="mt-3 flex items-center gap-2">
@@ -444,40 +350,6 @@ function Toggle({ valor, onMudar }: { valor: boolean; onMudar: (v: boolean) => v
     >
       <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${valor ? "translate-x-5" : "translate-x-0.5"}`} />
     </button>
-  );
-}
-
-function CampoMensagem({
-  titulo,
-  valor,
-  padrao,
-  onMudar,
-}: {
-  titulo: string;
-  valor: string;
-  padrao: string;
-  onMudar: (v: string) => void;
-}) {
-  const preview = substituirMarcadores(valor, "Maria", Date.now(), "Ana", "Corte Feminino");
-  return (
-    <div className="card-elevated rounded-xl bg-surface p-4">
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-sm font-medium">{titulo}</p>
-        <button
-          onClick={() => onMudar(padrao)}
-          className="flex items-center gap-1 text-xs text-muted transition-colors hover:text-accent"
-        >
-          <RotateCcw size={11} /> Restaurar padrão
-        </button>
-      </div>
-      <textarea
-        value={valor}
-        onChange={(e) => onMudar(e.target.value)}
-        rows={4}
-        className="w-full rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-accent"
-      />
-      <p className="mt-2 whitespace-pre-line rounded-lg bg-surface-alt p-3 text-xs text-muted">{preview}</p>
-    </div>
   );
 }
 
