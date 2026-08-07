@@ -54,7 +54,7 @@ const ITENS_SECUNDARIOS: NavItem[] = [
   { href: "/bloqueios-agenda", label: "Bloqueios de Agenda", icon: CalendarOff },
   { href: "/financeiro", label: "Financeiro", icon: Wallet },
   { href: '/meta-faturamento', label: 'Meta de Faturamento', icon: Target, financeiroOnly: true },
-  { href: '/calculadora-preco', label: 'Calculadora de Preço', icon: Calculator, donoOnly: true },
+  { href: '/calculadora-preco', label: 'Calculadora de Preço', icon: Calculator },
   { href: "/estoque", label: "Estoque", icon: Boxes, donoOnly: true },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
   { href: "/equipe", label: "Equipe", icon: HeartHandshake, donoOnly: true },
