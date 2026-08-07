@@ -21,7 +21,6 @@ export default function MeuPerfilPage() {
   const [alternando, setAlternando] = useState(false);
   const [chavePix, setChavePix] = useState(() => perfil?.chave_pix ?? '');
   const [nomeBeneficiario, setNomeBeneficiario] = useState(() => perfil?.pix_nome_beneficiario ?? perfil?.nome ?? '');
-  const [cidadePix, setCidadePix] = useState(() => perfil?.pix_cidade ?? '');
   const [salvandoPix, setSalvandoPix] = useState(false);
   const [pixSalvo, setPixSalvo] = useState(false);
   const [salvandoTema, setSalvandoTema] = useState<string | null>(null);
@@ -76,7 +75,7 @@ export default function MeuPerfilPage() {
     setPixSalvo(false);
     setErro(null);
     try {
-      await atualizarPixPerfil(perfil.id, chavePix, nomeBeneficiario, cidadePix);
+      await atualizarPixPerfil(perfil.id, chavePix, nomeBeneficiario, '');
       await refrescarPerfil();
       setPixSalvo(true);
     } catch (err) {
@@ -190,7 +189,7 @@ export default function MeuPerfilPage() {
             <Landmark size={18} className='mt-0.5 text-accent' />
             <div>
               <p className='font-medium'>Meu Pix para receber sinais</p>
-              <p className='text-xs text-muted'>Será usado quando o salão escolher cobrar o sinal direto para o profissional.</p>
+              <p className='text-xs text-muted'>Se você preencher, os sinais dos seus agendamentos caem direto aqui. Se deixar em branco, caem no Pix do salão.</p>
             </div>
           </div>
           <div className='flex flex-col gap-3'>
@@ -199,9 +198,6 @@ export default function MeuPerfilPage() {
             </label>
             <label className='text-xs font-medium uppercase tracking-wide text-muted'>Nome do beneficiário
               <input value={nomeBeneficiario} onChange={(e) => setNomeBeneficiario(e.target.value)} className='mt-1.5 w-full rounded-xl border border-border-subtle bg-background px-3 py-3 text-sm outline-none focus:border-accent' />
-            </label>
-            <label className='text-xs font-medium uppercase tracking-wide text-muted'>Cidade
-              <input value={cidadePix} onChange={(e) => setCidadePix(e.target.value)} className='mt-1.5 w-full rounded-xl border border-border-subtle bg-background px-3 py-3 text-sm outline-none focus:border-accent' />
             </label>
             <button onClick={handleSalvarPix} disabled={salvandoPix} className='rounded-xl bg-accent px-4 py-3 text-sm font-medium text-accent-foreground disabled:opacity-60'>
               {salvandoPix ? 'Salvando...' : 'Salvar meu Pix'}

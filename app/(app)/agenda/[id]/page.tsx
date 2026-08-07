@@ -37,12 +37,15 @@ import {
   atualizarQuantidadeClientePacote,
   marcarComoDescontado,
   confirmarSinal,
+  gerarCobrancaSinal,
+  buscarMeuSalao,
 } from "@/lib/repositories";
 import { criarRetornoCliente, listarBloqueiosAgenda } from "@/lib/repositories";
 import { registrarAuditoria } from "@/lib/auditoria";
-import { Agendamento, AgendamentoServico, Cliente, ClientePacote, ItemComanda, Perfil, Servico } from "@/lib/types";
+import { Agendamento, AgendamentoServico, Cliente, ClientePacote, ItemComanda, Perfil, Salao, Servico } from "@/lib/types";
 import { converterIsoParaMillis, converterMillisParaIso, formatarMoeda, formatarStatus } from "@/lib/datetime";
 import { abrirWhatsApp } from "@/lib/whatsapp";
+import { montarPixCopiaECola } from "@/lib/pix";
 
 const inputClass =
   "flex items-center gap-2.5 rounded-xl border border-border-subtle bg-surface px-4 py-3 transition-colors focus-within:border-accent";
@@ -115,17 +118,83 @@ function AgendamentoFormInner() {
   const [salvando, setSalvando] = useState(false);
   const [confirmandoSinal, setConfirmandoSinal] = useState(false);
   const [duracaoManual, setDuracaoManual] = useState<number | null>(null);
+  const [salao, setSalao] = useState<Salao | null>(null);
+  const [gerandoSinal, setGerandoSinal] = useState(false);
+  const [mensagemSinal, setMensagemSinal] = useState<string | null>(null);
 
   useEffect(() => {
     if (!perfil) return;
     listarClientes(perfil.salao_id).then(setClientes);
     listarServicos(perfil.salao_id).then(setServicos);
     listarEquipe(perfil.salao_id).then((lista) => setEquipe(lista.filter((p) => p.atende_clientes)));
+    buscarMeuSalao(perfil.salao_id).then(setSalao);
     if (editando && agendamentoId) {
       carregarAgendamento(agendamentoId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [perfil?.id]);
+
+  async function handleGerarCobrancaPix() {
+    if (!agendamentoAtual?.id || !clienteSelecionado) return;
+    setMensagemSinal(null);
+
+    if (!salao || !salao.sinal_ativo || salao.sinal_valor <= 0) {
+      setMensagemSinal("O sinal não está ativado em Meu Negócio.");
+      return;
+    }
+
+    const profissional = agendamentoAtual.profissional_id
+      ? equipe.find((p) => p.id === agendamentoAtual.profissional_id)
+      : null;
+    const usaProfissional = !!profissional?.chave_pix && !!profissional?.pix_nome_beneficiario;
+
+    const chave = usaProfissional ? profissional!.chave_pix! : salao.chave_pix;
+    const nome = usaProfissional ? profissional!.pix_nome_beneficiario! : salao.pix_nome_beneficiario || salao.nome;
+    const cidade = (usaProfissional ? profissional!.pix_cidade : salao.pix_cidade) || "";
+
+    if (!chave || !nome) {
+      setMensagemSinal(
+        "Cadastre a chave Pix e o beneficiário em Meu Negócio (ou em Meu Perfil, pra receber direto)."
+      );
+      return;
+    }
+
+    const destino: "SALAO" | "PROFISSIONAL" = usaProfissional ? "PROFISSIONAL" : "SALAO";
+    const recebedorId = usaProfissional ? profissional!.id : null;
+
+    setGerandoSinal(true);
+    try {
+      await gerarCobrancaSinal(agendamentoAtual.id, destino, recebedorId, salao.sinal_valor, chave, nome, cidade);
+      setAgendamentoAtual({
+        ...agendamentoAtual,
+        sinal_status: "PENDENTE",
+        sinal_destino: destino,
+        sinal_recebedor_perfil_id: recebedorId,
+        sinal_valor: salao.sinal_valor,
+        sinal_chave_pix: chave,
+        sinal_nome_beneficiario: nome,
+        sinal_cidade: cidade,
+      });
+
+      const copiaECola = montarPixCopiaECola({
+        chave,
+        nomeBeneficiario: nome,
+        cidade,
+        valor: salao.sinal_valor,
+        identificador: agendamentoAtual.id,
+      });
+      const primeiroNome = clienteSelecionado.nome.trim().split(" ")[0] ?? clienteSelecionado.nome;
+      const mensagem =
+        `Oi ${primeiroNome}! Pra confirmar seu horário, falta só o sinal de ${formatarMoeda(salao.sinal_valor)} via Pix.\n\n` +
+        `Copia e cola o código abaixo no app do seu banco:\n\n${copiaECola}\n\n` +
+        `Qualquer dúvida é só chamar por aqui 🙂`;
+      abrirWhatsApp(clienteSelecionado.telefone, mensagem);
+    } catch (e) {
+      setMensagemSinal(e instanceof Error ? `Erro ao gerar a cobrança: ${e.message}` : "Erro ao gerar a cobrança.");
+    } finally {
+      setGerandoSinal(false);
+    }
+  }
 
   async function carregarAgendamento(id: string) {
     const ag = await buscarAgendamento(id);
@@ -215,6 +284,12 @@ function AgendamentoFormInner() {
     const [ano, mes, dia] = dataSelecionada.split("-").map(Number);
     const [hora, minuto] = horaSelecionada.split(":").map(Number);
     return new Date(ano, mes - 1, dia, hora, minuto, 0, 0).getTime();
+  }
+
+  function voltarParaAgenda() {
+    const [ano, mes, dia] = dataSelecionada.split("-").map(Number);
+    const millisDoDia = new Date(ano, mes - 1, dia, 0, 0, 0, 0).getTime();
+    router.push(`/agenda?data=${millisDoDia}`);
   }
 
   const duracaoAutomatica = itensComanda.reduce((soma, i) => soma + i.servico.duracao_minutos, 0) || 30;
@@ -356,7 +431,7 @@ function AgendamentoFormInner() {
         });
       }
 
-      router.push("/agenda");
+      voltarParaAgenda();
     } finally {
       setSalvando(false);
     }
@@ -400,7 +475,7 @@ function AgendamentoFormInner() {
     }
     setDiasParaRetorno("");
     setMostrarPagamento(false);
-    router.push("/agenda");
+    voltarParaAgenda();
   }
 
   async function handleConfirmarSinal() {
@@ -417,7 +492,7 @@ function AgendamentoFormInner() {
   async function handleMarcarFalta() {
     if (!agendamentoAtual || !agendamentoId) return;
     await atualizarAgendamento(agendamentoId, { ...agendamentoAtual, status: "FALTOU" });
-    router.push("/agenda");
+    voltarParaAgenda();
   }
 
   async function handleMarcarConfirmado() {
@@ -429,7 +504,7 @@ function AgendamentoFormInner() {
   async function handleMarcarCancelado() {
     if (!agendamentoAtual || !agendamentoId) return;
     await atualizarAgendamento(agendamentoId, { ...agendamentoAtual, status: "CANCELADO" });
-    router.push("/agenda");
+    voltarParaAgenda();
   }
 
   async function handleReabrir() {
@@ -449,7 +524,7 @@ function AgendamentoFormInner() {
         status: agendamentoAtual.status,
       });
     }
-    router.push("/agenda");
+    voltarParaAgenda();
   }
 
 
@@ -640,6 +715,20 @@ function AgendamentoFormInner() {
                 <Check size={17} /> Sinal de {formatarMoeda(agendamentoAtual.sinal_valor ?? 0)} confirmado
               </div>
             )}
+            {(!agendamentoAtual.sinal_status || agendamentoAtual.sinal_status === 'NAO_APLICAVEL') &&
+              salao?.sinal_ativo &&
+              clienteSelecionado && (
+                <div>
+                  <button
+                    onClick={handleGerarCobrancaPix}
+                    disabled={gerandoSinal}
+                    className='w-full rounded-xl border border-border-subtle px-4 py-3 text-sm font-medium transition-colors hover:bg-surface disabled:opacity-60'
+                  >
+                    {gerandoSinal ? 'Gerando...' : 'Gerar cobrança Pix e enviar no WhatsApp'}
+                  </button>
+                  {mensagemSinal && <p className='mt-2 text-xs text-danger'>{mensagemSinal}</p>}
+                </div>
+              )}
             <div className="mt-1 flex items-center gap-2 text-sm text-muted">
               Status:
               <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_ESTILO[agendamentoAtual.status] ?? "bg-surface-alt"}`}>

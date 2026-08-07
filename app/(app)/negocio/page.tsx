@@ -219,11 +219,6 @@ export default function MeuNegocioPage() {
           />
         </Campo>
 
-        <div className="card-elevated flex items-center justify-between rounded-xl bg-surface p-4">
-          <p className="text-sm font-medium">Cliente escolhe o profissional</p>
-          <Toggle valor={salao.cliente_escolhe_profissional} onMudar={(v) => atualizarCampo("cliente_escolhe_profissional", v)} />
-        </div>
-
         <Campo label="Duração padrão do atendimento">
           <select
             value={salao.duracao_padrao_minutos}
@@ -272,49 +267,22 @@ export default function MeuNegocioPage() {
                   type='number'
                   min='0'
                   step='0.01'
-                  value={salao.sinal_valor || ''}
+                  value={salao.sinal_valor ? Number(salao.sinal_valor).toFixed(2) : ''}
                   onChange={(e) => atualizarCampo('sinal_valor', Number(e.target.value) || 0)}
                   className={inputClass}
                 />
               </Campo>
 
-              <div>
-                <p className={labelClass}>Quem recebe o sinal</p>
-                <div className='mt-2 grid grid-cols-2 gap-2'>
-                  {[
-                    { id: 'SALAO', nome: 'Pix do salão' },
-                    { id: 'PROFISSIONAL', nome: 'Pix do profissional' },
-                  ].map((opcao) => (
-                    <button
-                      key={opcao.id}
-                      type='button'
-                      onClick={() => atualizarCampo('sinal_destino', opcao.id)}
-                      className={`rounded-xl border px-3 py-3 text-sm transition-colors ${
-                        salao.sinal_destino === opcao.id
-                          ? 'border-accent bg-accent/15 text-accent'
-                          : 'border-border-subtle text-muted hover:bg-surface-alt'
-                      }`}
-                    >
-                      {opcao.nome}
-                    </button>
-                  ))}
-                </div>
-                {salao.sinal_destino === 'PROFISSIONAL' && (
-                  <p className='mt-2 text-xs text-muted'>Cada colaborador cadastra o próprio Pix em Meu Perfil. Se faltar, o Pix do salão será usado.</p>
-                )}
-              </div>
+              <p className='text-xs text-muted'>
+                Cada profissional pode cadastrar o próprio Pix em Meu Perfil — se cadastrar, o sinal dos agendamentos dele cai direto lá. Quem não cadastrar usa o Pix do salão abaixo, que também serve de reserva.
+              </p>
 
-              <Campo label={salao.sinal_destino === 'PROFISSIONAL' ? 'Chave Pix do salão (reserva)' : 'Chave Pix'}>
+              <Campo label='Chave Pix do salão'>
                 <input value={salao.chave_pix ?? ''} onChange={(e) => atualizarCampo('chave_pix', e.target.value)} className={inputClass} />
               </Campo>
-              <div className='grid gap-3 sm:grid-cols-2'>
-                <Campo label='Nome do beneficiário'>
-                  <input value={salao.pix_nome_beneficiario ?? ''} onChange={(e) => atualizarCampo('pix_nome_beneficiario', e.target.value)} className={inputClass} />
-                </Campo>
-                <Campo label='Cidade do Pix'>
-                  <input value={salao.pix_cidade ?? ''} onChange={(e) => atualizarCampo('pix_cidade', e.target.value)} className={inputClass} />
-                </Campo>
-              </div>
+              <Campo label='Nome do beneficiário'>
+                <input value={salao.pix_nome_beneficiario ?? ''} onChange={(e) => atualizarCampo('pix_nome_beneficiario', e.target.value)} className={inputClass} />
+              </Campo>
             </div>
           )}
         </section>

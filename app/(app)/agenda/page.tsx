@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Ban, CalendarDays, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -40,12 +40,24 @@ interface BlocoBloqueio {
 }
 
 export default function AgendaPage() {
+  return (
+    <Suspense fallback={null}>
+      <AgendaPageInner />
+    </Suspense>
+  );
+}
+
+function AgendaPageInner() {
   const { perfil } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [equipe, setEquipe] = useState<Perfil[]>([]);
   const [profissionalSelecionadoId, setProfissionalSelecionadoId] = useState<string | null>(null);
-  const [dataSelecionada, setDataSelecionada] = useState(inicioDoDia());
+  const [dataSelecionada, setDataSelecionada] = useState(() => {
+    const dataParam = searchParams.get("data");
+    return dataParam ? Number(dataParam) : inicioDoDia();
+  });
   const [carregando, setCarregando] = useState(true);
 
   const [cacheAgendamentos, setCacheAgendamentos] = useState<Agendamento[]>([]);
