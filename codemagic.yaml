@@ -1,0 +1,42 @@
+workflows:
+  ios-testflight:
+    name: AgendaFlow Pro - iOS TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      groups:
+        - appstore_credentials # criado no painel do Codemagic (App Store Connect API key)
+      vars:
+        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+        XCODE_SCHEME: "App"
+        BUNDLE_ID: "com.agendaflowpro.app"
+      node: latest
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Instalar dependências do projeto
+        script: |
+          npm install
+      - name: Instalar CocoaPods do projeto iOS
+        script: |
+          cd ios/App && pod install
+      - name: Configurar assinatura automática (App Store Connect)
+        script: |
+          xcode-project use-profiles
+      - name: Compilar o app (.ipa)
+        script: |
+          xcode-project build-ipa \
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true
+        # Convide as profissionais como "testadoras internas" direto no
+        # App Store Connect depois do primeiro build subir — não precisa
+        # de revisão da Apple pra isso, só pra distribuição pública.
