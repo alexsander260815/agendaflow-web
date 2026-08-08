@@ -36,3 +36,27 @@ export async function confirmarSinal(id: string): Promise<void> {
   const { error } = await supabase.from('agendamentos').update({ sinal_status: 'CONFIRMADO' }).eq('id', id);
   if (error) throw error;
 }
+
+export async function gerarCobrancaSinal(
+  id: string,
+  destino: "SALAO" | "PROFISSIONAL",
+  recebedorPerfilId: string | null,
+  valor: number,
+  chavePix: string,
+  nomeBeneficiario: string,
+  cidade: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("agendamentos")
+    .update({
+      sinal_status: "PENDENTE",
+      sinal_destino: destino,
+      sinal_recebedor_perfil_id: recebedorPerfilId,
+      sinal_valor: valor,
+      sinal_chave_pix: chavePix,
+      sinal_nome_beneficiario: nomeBeneficiario,
+      sinal_cidade: cidade,
+    })
+    .eq("id", id);
+  if (error) throw error;
+}
