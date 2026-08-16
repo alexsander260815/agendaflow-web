@@ -2,7 +2,7 @@
   "name": "AgendaFlow Pro",
   "short_name": "AgendaFlow",
   "description": "Gestão de agenda, clientes e financeiro do seu salão.",
-  "start_url": "/",
+  "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#0a1628",
   "theme_color": "#0a1628",

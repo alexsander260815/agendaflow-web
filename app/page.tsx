@@ -15,6 +15,7 @@ import {
 import { listarPlanos } from "@/lib/repositories";
 import { Plano } from "@/lib/types";
 import { formatarMoeda } from "@/lib/datetime";
+import InstalarNoIphone from "@/components/InstalarNoIphone";
 
 const FUNCIONALIDADES = [
   {
@@ -115,6 +116,7 @@ export default function PaginaInicial() {
             Já tenho conta
           </Link>
         </div>
+        <InstalarNoIphone />
       </section>
 
       <section className="mx-auto max-w-6xl px-5 py-12 md:px-8 md:py-20">
