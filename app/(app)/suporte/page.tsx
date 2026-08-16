@@ -1,8 +1,9 @@
 "use client";
 
-import { MessageCircle } from "lucide-react";
+import { Mail, MessageCircle } from "lucide-react";
 
 const NUMERO_WHATSAPP = "5551981522887";
+const EMAIL_SUPORTE = "agendaflowpro@gmail.com";
 
 export default function SuportePage() {
   return (
@@ -20,6 +21,12 @@ export default function SuportePage() {
           className="mt-2 flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 font-medium text-accent-foreground transition-opacity hover:opacity-90"
         >
           <MessageCircle size={17} /> Falar no WhatsApp
+        </a>
+        <a
+          href={`mailto:${EMAIL_SUPORTE}`}
+          className="flex items-center justify-center gap-1.5 text-sm text-muted transition-colors hover:text-foreground"
+        >
+          <Mail size={15} /> {EMAIL_SUPORTE}
         </a>
       </div>
     </div>

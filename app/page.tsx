@@ -175,7 +175,10 @@ export default function PaginaInicial() {
       </section>
 
       <footer className="border-t border-border-subtle px-5 py-8 text-center text-xs text-muted">
-        © {new Date().getFullYear()} AgendaFlow Pro
+        <p>© {new Date().getFullYear()} AgendaFlow Pro</p>
+        <a href="mailto:agendaflowpro@gmail.com" className="mt-1 inline-block transition-colors hover:text-foreground">
+          agendaflowpro@gmail.com
+        </a>
       </footer>
     </div>
   );
