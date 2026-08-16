@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarDays, Eye, EyeOff, Lock, Mail, MailCheck, User } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 
@@ -12,10 +12,21 @@ const inputWrapperClass =
 const inputClass = "w-full bg-transparent text-foreground outline-none placeholder:text-muted/60";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+
+function LoginPageInner() {
   const { login, cadastrar, cadastrarComConvite, enviarEmailRecuperacaoSenha } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [modo, setModo] = useState<Modo>("LOGIN");
+  const [modo, setModo] = useState<Modo>(() =>
+    searchParams.get("modo") === "cadastro" ? "CADASTRO_NOVO_SALAO" : "LOGIN"
+  );
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
@@ -70,7 +81,7 @@ export default function LoginPage() {
     if (resultado.erro) {
       setErro(resultado.erro);
     } else if (modo === "LOGIN") {
-      router.replace("/");
+      router.replace("/dashboard");
     } else {
       setAguardandoConfirmacao(true);
     }

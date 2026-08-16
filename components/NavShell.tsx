@@ -43,7 +43,7 @@ interface NavItem {
 }
 
 const ITENS_PRINCIPAIS: NavItem[] = [
-  { href: "/", label: "Início", icon: LayoutGrid },
+  { href: "/dashboard", label: "Início", icon: LayoutGrid },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/clientes", label: "Clientes", icon: Users },
 ];
