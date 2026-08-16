@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   BarChart3,
   BellRing,
@@ -10,12 +11,10 @@ import {
   Calculator,
   Check,
   ChevronDown,
-  HeartHandshake,
   Landmark,
   Mail,
   MessageCircle,
   MessageSquare,
-  Package,
   Scissors,
   ShieldCheck,
   Target,
@@ -210,32 +209,46 @@ export default function PaginaInicial() {
         </div>
       </header>
 
-      <section className="relative overflow-hidden px-5 py-16 text-center md:py-24">
+      <section className="relative overflow-hidden px-5 py-16 md:py-24">
         <div
           className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[420px] opacity-25"
           style={{ background: "radial-gradient(circle, var(--accent), transparent 70%)" }}
         />
-        <h1 className="mx-auto max-w-2xl text-3xl font-semibold tracking-tight md:text-5xl">
-          A agenda completa pro seu salão crescer
-        </h1>
-        <p className="mx-auto mt-4 max-w-xl text-muted md:text-lg">
-          Agenda por profissional, financeiro, comissões, estoque e mensagens automáticas — tudo num só lugar, feito pra salões e barbearias de qualquer tamanho.
-        </p>
-        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link
-            href="/login?modo=cadastro"
-            className="rounded-xl bg-accent px-6 py-3.5 font-medium text-accent-foreground transition-opacity hover:opacity-90"
-          >
-            Testar grátis
-          </Link>
-          <Link
-            href="/login"
-            className="rounded-xl border border-border-subtle px-6 py-3.5 font-medium transition-colors hover:bg-surface"
-          >
-            Já tenho conta
-          </Link>
+        <div className="mx-auto grid max-w-6xl items-center gap-10 md:grid-cols-2 md:px-8">
+          <div className="text-center md:text-left">
+            <h1 className="mx-auto max-w-2xl text-3xl font-semibold tracking-tight md:mx-0 md:text-5xl">
+              A agenda completa pro seu salão crescer
+            </h1>
+            <p className="mx-auto mt-4 max-w-xl text-muted md:mx-0 md:text-lg">
+              Agenda por profissional, financeiro, comissões, estoque e mensagens automáticas — tudo num só lugar, feito pra salões e barbearias de qualquer tamanho.
+            </p>
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row md:justify-start">
+              <Link
+                href="/login?modo=cadastro"
+                className="rounded-xl bg-accent px-6 py-3.5 font-medium text-accent-foreground transition-opacity hover:opacity-90"
+              >
+                Testar grátis
+              </Link>
+              <Link
+                href="/login"
+                className="rounded-xl border border-border-subtle px-6 py-3.5 font-medium transition-colors hover:bg-surface"
+              >
+                Já tenho conta
+              </Link>
+            </div>
+            <InstalarNoIphone />
+          </div>
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl card-elevated">
+            <Image
+              src="/images/barbearia-hero.jpg"
+              alt="Barbearia atendendo um cliente"
+              fill
+              sizes="(min-width: 768px) 50vw, 100vw"
+              className="object-cover"
+              priority
+            />
+          </div>
         </div>
-        <InstalarNoIphone />
       </section>
 
       <section className="mx-auto max-w-6xl px-5 py-12 md:px-8 md:py-16">
@@ -281,14 +294,27 @@ export default function PaginaInicial() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-3xl px-5 py-12 text-center md:px-8 md:py-16">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent/15 text-accent mx-auto">
-          <ShieldCheck size={22} />
+      <section className="mx-auto max-w-6xl px-5 py-12 md:px-8 md:py-16">
+        <div className="grid items-center gap-10 md:grid-cols-2">
+          <div className="relative order-2 aspect-[4/3] w-full overflow-hidden rounded-3xl card-elevated md:order-1">
+            <Image
+              src="/images/salao-cliente.jpg"
+              alt="Profissional atendendo uma cliente no salão"
+              fill
+              sizes="(min-width: 768px) 50vw, 100vw"
+              className="object-cover"
+            />
+          </div>
+          <div className="order-1 text-center md:order-2 md:text-left">
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-accent/15 text-accent md:mx-0">
+              <ShieldCheck size={22} />
+            </div>
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight md:text-3xl">Só sua equipe marca os horários</h2>
+            <p className="mx-auto mt-3 max-w-lg text-muted md:mx-0">
+              Diferente de outros sistemas, o AgendaFlow não tem página aberta pro cliente agendar sozinho. Toda marcação passa por você ou pela sua equipe — sem horário surpresa entrando na agenda.
+            </p>
+          </div>
         </div>
-        <h2 className="mt-4 text-2xl font-semibold tracking-tight md:text-3xl">Só sua equipe marca os horários</h2>
-        <p className="mx-auto mt-3 max-w-lg text-muted">
-          Diferente de outros sistemas, o AgendaFlow não tem página aberta pro cliente agendar sozinho. Toda marcação passa por você ou pela sua equipe — sem horário surpresa entrando na agenda.
-        </p>
       </section>
 
       {planos && planosFiltrados.length > 0 && (
