@@ -331,6 +331,22 @@ export interface Salao {
   forcar_mensagem_padrao: boolean;
 }
 
+export type StatusFilaEspera = "ATIVO" | "ATENDIDO" | "CANCELADO";
+
+// Cliente quer um dia/horário lotado — fica anotado aqui até o salão avisar
+// (WhatsApp) que abriu vaga. Não reserva nem bloqueia nada na agenda.
+export interface FilaEspera {
+  id: string;
+  salao_id: string;
+  cliente_id: string;
+  servico_id: string | null;
+  profissional_id: string | null;
+  data_desejada: string; // "yyyy-MM-dd"
+  observacao: string;
+  status: StatusFilaEspera;
+  criado_em?: string;
+}
+
 export interface HorarioFuncionamento {
   id: string;
   salao_id: string;

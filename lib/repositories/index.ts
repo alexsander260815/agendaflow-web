@@ -20,6 +20,7 @@ export * from "./conviteRepository";
 export * from "./salaoRepository";
 export * from "./logoRepository";
 export * from "./horarioFuncionamentoRepository";
+export * from "./filaEsperaRepository";
 export * from "./planoRepository";
 export * from "./assinaturaRepository";
 export * from "./painelAdminRepository";

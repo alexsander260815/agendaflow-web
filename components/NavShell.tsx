@@ -14,6 +14,7 @@ import {
   CreditCard,
   Gift,
   HeartHandshake,
+  Hourglass,
   Landmark,
   LayoutGrid,
   LifeBuoy,
@@ -67,6 +68,7 @@ const ITENS_OPERACOES: NavItem[] = [
   { href: "/servicos", label: "Serviços", icon: Scissors },
   { href: "/retorno-clientes", label: "Retorno de Clientes", icon: BellRing },
   { href: "/campanhas", label: "Campanhas", icon: Gift },
+  { href: "/fila-espera", label: "Fila de Espera", icon: Hourglass },
   { href: "/bloqueios-agenda", label: "Bloqueios de Agenda", icon: CalendarOff },
 ];
 
