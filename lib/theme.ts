@@ -7,6 +7,8 @@ export interface TemaVisual {
 }
 
 export const TEMA_PADRAO = 'azul_grafite';
+export type ModoTema = 'claro' | 'escuro';
+export const CHAVE_MODO_TEMA = 'agendaflow_modo_tema';
 
 export const TEMAS_VISUAIS: TemaVisual[] = [
   { id: 'roxo_rosa', nome: 'Roxo & Rosa', descricao: 'Criativo e marcante', cores: ['#21152b', '#6d3f78', '#f19ac2'] },
@@ -25,4 +27,15 @@ export function aplicarTemaVisual(tema?: string | null): void {
   if (typeof document === 'undefined') return;
   const existe = TEMAS_VISUAIS.some((item) => item.id === tema);
   document.documentElement.dataset.theme = existe ? tema! : TEMA_PADRAO;
+}
+
+export function aplicarModoTema(modo: ModoTema): void {
+  if (typeof document === 'undefined') return;
+  document.documentElement.dataset.mode = modo;
+  window.localStorage.setItem(CHAVE_MODO_TEMA, modo);
+}
+
+export function obterModoTema(): ModoTema {
+  if (typeof window === 'undefined') return 'escuro';
+  return window.localStorage.getItem(CHAVE_MODO_TEMA) === 'claro' ? 'claro' : 'escuro';
 }

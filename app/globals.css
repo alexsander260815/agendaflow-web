@@ -188,6 +188,35 @@
   --shadow-color: 10 15 0;
 }
 
+:root[data-mode='light'] {
+  color-scheme: light;
+  --background: #f7f5fb;
+  --surface: #ffffff;
+  --surface-alt: #f0ebfa;
+  --foreground: #161329;
+  --muted: #69647a;
+  --border-subtle: #ded8eb;
+  --accent: #7c3aed;
+  --accent-light: #a78bfa;
+  --accent-dark: #5b21b6;
+  --accent-foreground: #ffffff;
+  --danger: #dc3653;
+  --success: #059669;
+  --success-foreground: #ffffff;
+  --warning: #d79216;
+  --warning-foreground: #2f2105;
+  --info: #2563eb;
+  --info-foreground: #ffffff;
+  --finalizado: #7c3aed;
+  --finalizado-foreground: #ffffff;
+  --dashboard-accent: #7c3aed;
+  --dashboard-accent-light: #a855f7;
+  --dashboard-accent-foreground: #ffffff;
+  --shadow-color: 46 32 76;
+}
+
+:root[data-mode='dark'] { color-scheme: dark; }
+
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
@@ -219,6 +248,18 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+html, body { min-height: 100%; }
+
+.premium-shell {
+  background:
+    radial-gradient(circle at 15% 5%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 30rem),
+    var(--background);
+}
+
+.premium-nav-glow {
+  box-shadow: 0 8px 30px -18px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 /* Elevação sutil pros cards, no espírito das superfícies tonais do Material3 */

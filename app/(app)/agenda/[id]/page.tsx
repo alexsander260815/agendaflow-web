@@ -6,9 +6,12 @@ import {
   AlertTriangle,
   Calendar,
   Check,
+  ChevronRight,
   Clock,
   MessageCircle,
   Landmark,
+  Minus,
+  Package,
   Pencil,
   Plus,
   RotateCcw,
@@ -39,14 +42,19 @@ import {
   confirmarSinal,
   gerarCobrancaSinal,
   buscarMeuSalao,
+  listarProdutos,
+  listarProdutosDaComanda,
+  salvarProdutosDaComanda,
+  concluirVendaProdutos,
 } from "@/lib/repositories";
 import { criarRetornoCliente, listarBloqueiosAgenda } from "@/lib/repositories";
 import { registrarAuditoria } from "@/lib/auditoria";
-import { Agendamento, AgendamentoServico, Cliente, ClientePacote, ItemComanda, Perfil, Salao, Servico } from "@/lib/types";
+import { Agendamento, AgendamentoServico, Cliente, ClientePacote, ItemComanda, Perfil, Produto, ProdutoComanda, Salao, Servico } from "@/lib/types";
 import { converterIsoParaMillis, converterMillisParaIso, formatarMoeda, formatarStatus } from "@/lib/datetime";
 import { abrirWhatsApp } from "@/lib/whatsapp";
 import { montarPixCopiaECola } from "@/lib/pix";
 import { mensagemEfetiva, mensagemPadraoConfirmacao, substituirMarcadores } from "@/lib/mensagens";
+import Avatar from "@/components/Avatar";
 
 const inputClass =
   "flex items-center gap-2.5 rounded-xl border border-border-subtle bg-surface px-4 py-3 transition-colors focus-within:border-accent";
@@ -105,10 +113,14 @@ function AgendamentoFormInner() {
   });
   const [observacoes, setObservacoes] = useState("");
   const [itensComanda, setItensComanda] = useState<ItemComanda[]>([]);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [produtosComanda, setProdutosComanda] = useState<ProdutoComanda[]>([]);
   const [pacotesAtivos, setPacotesAtivos] = useState<Map<string, ClientePacote>>(new Map());
 
   const [mostrarSeletorCliente, setMostrarSeletorCliente] = useState(false);
   const [mostrarSeletorServico, setMostrarSeletorServico] = useState(false);
+  const [mostrarSeletorProduto, setMostrarSeletorProduto] = useState(false);
+  const [termoBuscaProduto, setTermoBuscaProduto] = useState("");
   const [termoBuscaServico, setTermoBuscaServico] = useState("");
   const [mostrarPagamento, setMostrarPagamento] = useState(false);
   const [diasParaRetorno, setDiasParaRetorno] = useState("");
@@ -123,18 +135,6 @@ function AgendamentoFormInner() {
   const [gerandoSinal, setGerandoSinal] = useState(false);
   const [mensagemSinal, setMensagemSinal] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!perfil) return;
-    listarClientes(perfil.salao_id).then(setClientes);
-    listarServicos(perfil.salao_id).then(setServicos);
-    listarEquipe(perfil.salao_id).then((lista) => setEquipe(lista.filter((p) => p.atende_clientes)));
-    buscarMeuSalao(perfil.salao_id).then(setSalao);
-    if (editando && agendamentoId) {
-      carregarAgendamento(agendamentoId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perfil?.id]);
-
   async function handleGerarCobrancaPix() {
     if (!agendamentoAtual?.id || !clienteSelecionado) return;
     setMensagemSinal(null);
@@ -147,16 +147,28 @@ function AgendamentoFormInner() {
     const profissional = agendamentoAtual.profissional_id
       ? equipe.find((p) => p.id === agendamentoAtual.profissional_id)
       : null;
-    const usaProfissional = !!profissional?.chave_pix && !!profissional?.pix_nome_beneficiario;
+
+    // Quem recebe o sinal é decidido pelo salão (Meu Negócio > "Quem recebe o sinal"),
+    // nunca por "o profissional por acaso tem alguma chave Pix cadastrada" — antes o
+    // código ignorava salao.sinal_destino e preferia a chave do profissional sempre que
+    // ela existisse, mesmo quando o salão tinha configurado para receber ele mesmo.
+    const destinoProfissional = salao.sinal_destino === "PROFISSIONAL";
+    const usaProfissional =
+      destinoProfissional && !!profissional?.chave_pix && !!profissional?.pix_nome_beneficiario && !!profissional?.pix_cidade;
+
+    if (destinoProfissional && !usaProfissional) {
+      setMensagemSinal(
+        `${profissional?.nome ?? "Este profissional"} ainda não cadastrou uma chave Pix para recebimento de sinal.`
+      );
+      return;
+    }
 
     const chave = usaProfissional ? profissional!.chave_pix! : salao.chave_pix;
     const nome = usaProfissional ? profissional!.pix_nome_beneficiario! : salao.pix_nome_beneficiario || salao.nome;
     const cidade = (usaProfissional ? profissional!.pix_cidade : salao.pix_cidade) || "";
 
     if (!chave || !nome) {
-      setMensagemSinal(
-        "Cadastre a chave Pix e o beneficiário em Meu Negócio (ou em Meu Perfil, pra receber direto)."
-      );
+      setMensagemSinal("Cadastre a chave Pix e o beneficiário em Meu Negócio.");
       return;
     }
 
@@ -213,6 +225,13 @@ function AgendamentoFormInner() {
     abrirWhatsApp(clienteSelecionado.telefone, mensagem);
   }
 
+  async function carregarPacotesDoCliente(clienteId: string) {
+    const todos = await listarClientePacotesPorCliente(clienteId);
+    const ativos = new Map<string, ClientePacote>();
+    todos.filter((p) => p.quantidade_restante > 0).forEach((p) => ativos.set(p.servico_id, p));
+    setPacotesAtivos(ativos);
+  }
+
   async function carregarAgendamento(id: string) {
     const ag = await buscarAgendamento(id);
     setAgendamentoAtual(ag);
@@ -227,6 +246,8 @@ function AgendamentoFormInner() {
         await carregarPacotesDoCliente(ag.cliente_id);
       }
       const itens = await listarItensPorAgendamento(id);
+      const produtosSalvos = await listarProdutosDaComanda(id);
+      setProdutosComanda(produtosSalvos);
       setItensComanda(
         itens.map((item) => ({
           servico: {
@@ -247,23 +268,35 @@ function AgendamentoFormInner() {
   }
 
   useEffect(() => {
-    if (clienteSelecionado) carregarPacotesDoCliente(clienteSelecionado.id);
+    if (!perfil) return;
+    const frame = window.requestAnimationFrame(() => {
+      listarClientes(perfil.salao_id).then(setClientes);
+      listarServicos(perfil.salao_id).then(setServicos);
+      listarProdutos(perfil.salao_id).then(setProdutos);
+      listarEquipe(perfil.salao_id).then((lista) => setEquipe(lista.filter((p) => p.atende_clientes)));
+      buscarMeuSalao(perfil.salao_id).then(setSalao);
+      if (editando && agendamentoId) void carregarAgendamento(agendamentoId);
+    });
+    return () => window.cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [perfil?.id]);
+
+  useEffect(() => {
+    if (!clienteSelecionado) return;
+    const frame = window.requestAnimationFrame(() => void carregarPacotesDoCliente(clienteSelecionado.id));
+    return () => window.cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clienteSelecionado?.id]);
 
   // Preenche clienteSelecionado ao editar, assim que a lista de clientes carrega
   useEffect(() => {
     if (agendamentoAtual && clientes.length) {
       const c = clientes.find((c) => c.id === agendamentoAtual.cliente_id);
-      if (c) setClienteSelecionado(c);
+      if (!c) return;
+      const frame = window.requestAnimationFrame(() => setClienteSelecionado(c));
+      return () => window.cancelAnimationFrame(frame);
     }
   }, [agendamentoAtual, clientes]);
-
-  async function carregarPacotesDoCliente(clienteId: string) {
-    const todos = await listarClientePacotesPorCliente(clienteId);
-    const ativos = new Map<string, ClientePacote>();
-    todos.filter((p) => p.quantidade_restante > 0).forEach((p) => ativos.set(p.servico_id, p));
-    setPacotesAtivos(ativos);
-  }
 
   function adicionarServico(servico: Servico) {
     const pacote = pacotesAtivos.get(servico.id);
@@ -281,6 +314,45 @@ function AgendamentoFormInner() {
     setItensComanda((atual) => atual.filter((_, i) => i !== index));
   }
 
+  function adicionarProduto(produto: Produto) {
+    setProdutosComanda((atual) => {
+      const existente = atual.find((item) => item.produto_id === produto.id && !item.estoque_baixado);
+      if (existente) {
+        if (existente.quantidade >= produto.saldo) return atual;
+        return atual.map((item) =>
+          item === existente ? { ...item, quantidade: item.quantidade + 1 } : item
+        );
+      }
+      if (produto.saldo <= 0) return atual;
+      return [
+        ...atual,
+        {
+          id: crypto.randomUUID(),
+          salao_id: produto.salao_id,
+          agendamento_id: agendamentoId ?? "",
+          produto_id: produto.id,
+          nome_produto: produto.nome,
+          preco_unitario: produto.preco,
+          quantidade: 1,
+          estoque_baixado: false,
+        },
+      ];
+    });
+    setMostrarSeletorProduto(false);
+    setTermoBuscaProduto("");
+  }
+
+  function alterarQuantidadeProduto(produtoId: string, delta: number) {
+    const saldo = produtos.find((produto) => produto.id === produtoId)?.saldo ?? 0;
+    setProdutosComanda((atual) =>
+      atual.flatMap((item) => {
+        if (item.produto_id !== produtoId || item.estoque_baixado) return [item];
+        const quantidade = Math.min(saldo, item.quantidade + delta);
+        return quantidade > 0 ? [{ ...item, quantidade }] : [];
+      })
+    );
+  }
+
   function confirmarEdicaoPreco() {
     if (indiceEditandoPreco === null) return;
     const novoPreco = parseFloat(precoEditado);
@@ -292,10 +364,15 @@ function AgendamentoFormInner() {
     setIndiceEditandoPreco(null);
   }
 
-  const total = useMemo(
+  const totalServicos = useMemo(
     () => itensComanda.filter((i) => !i.usaPacote).reduce((soma, i) => soma + i.precoCobrado, 0),
     [itensComanda]
   );
+  const totalProdutos = useMemo(
+    () => produtosComanda.reduce((soma, item) => soma + item.preco_unitario * item.quantidade, 0),
+    [produtosComanda]
+  );
+  const total = totalServicos + totalProdutos;
 
   function calcularDataHoraMillis(): number {
     const [ano, mes, dia] = dataSelecionada.split("-").map(Number);
@@ -440,6 +517,19 @@ function AgendamentoFormInner() {
         comissao_fechada: false,
       }));
       await salvarItensComanda(id, itensParaSalvar);
+      await salvarProdutosDaComanda(
+        id,
+        perfil.salao_id,
+        produtosComanda
+          .filter((produto) => !produto.estoque_baixado)
+          .map(({ produto_id, nome_produto, preco_unitario, quantidade, criado_em }) => ({
+            produto_id,
+            nome_produto,
+            preco_unitario,
+            quantidade,
+            criado_em,
+          }))
+      );
 
       if (editando && agendamentoId) {
         registrarAuditoria(perfil.salao_id, perfil.id, "editar_comanda", "agendamento", agendamentoId, null, {
@@ -456,11 +546,7 @@ function AgendamentoFormInner() {
 
   async function handleMarcarConcluido(formaPagamento: string) {
     if (!agendamentoAtual || !agendamentoId || !perfil) return;
-    await atualizarAgendamento(agendamentoId, {
-      ...agendamentoAtual,
-      status: "CONCLUIDO",
-      forma_pagamento: formaPagamento,
-    });
+    await concluirVendaProdutos(agendamentoId, formaPagamento);
 
     const itens = await listarItensPorAgendamento(agendamentoId);
     for (const item of itens) {
@@ -546,29 +632,35 @@ function AgendamentoFormInner() {
 
 
   const podeSalvar = clienteSelecionado !== null && itensComanda.length > 0;
+  const profissionalSelecionado = equipe.find((profissional) => profissional.id === profissionalSelecionadoId) ?? null;
 
   return (
-    <div className="mx-auto max-w-xl p-5 pb-16 md:p-8">
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">{editando ? "Editar Comanda" : "Nova Comanda"}</h1>
+    <div className="mx-auto max-w-4xl p-4 pb-28 sm:p-6 md:p-8 lg:pb-10">
+      <div className="mb-7">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">Atendimento</p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{editando ? "Editar Comanda" : "Nova Comanda"}</h1>
+        <p className="mt-1 text-sm text-muted">{editando ? "Atualize os dados do atendimento" : "Agende um atendimento para sua cliente"}</p>
+      </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-5">
         <button
           onClick={() => setMostrarSeletorCliente(true)}
-          className={`${inputClass} text-left ${clienteSelecionado ? "" : "text-muted"}`}
+          className={`card-elevated flex items-center gap-4 rounded-2xl border border-border-subtle bg-surface p-5 text-left transition-colors hover:border-accent/50 ${clienteSelecionado ? "" : "text-muted"}`}
         >
-          <User size={16} className="text-muted" />
-          {clienteSelecionado?.nome ?? "Escolher Cliente"}
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent/10 text-accent"><User size={22} /></div>
+          <div className="min-w-0 flex-1"><p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">Cliente</p><p className="truncate font-semibold">{clienteSelecionado?.nome ?? "Escolher cliente"}</p>{clienteSelecionado && <p className="text-sm text-muted">{clienteSelecionado.telefone}</p>}</div>
+          <ChevronRight size={20} className="text-accent" />
         </button>
 
         {!usuarioEProfissional && (
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium uppercase tracking-wide text-muted">Profissional</label>
-            <div className={inputClass}>
-              <Users size={16} className="text-muted" />
+          <div className="card-elevated flex items-center gap-4 rounded-2xl border border-border-subtle bg-surface p-5">
+            {profissionalSelecionado ? <Avatar nome={profissionalSelecionado.nome} fotoUrl={profissionalSelecionado.foto_url} shape="square" className="h-12 w-12 rounded-2xl" /> : <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent"><Users size={22} /></div>}
+            <div className="min-w-0 flex-1">
+              <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-accent">Profissional</label>
               <select
                 value={profissionalSelecionadoId ?? ""}
                 onChange={(e) => setProfissionalSelecionadoId(e.target.value || null)}
-                className="w-full bg-transparent outline-none"
+                className="w-full bg-transparent font-semibold outline-none"
               >
                 <option value="" className="bg-surface">
                   Não atribuído
@@ -583,38 +675,36 @@ function AgendamentoFormInner() {
           </div>
         )}
 
-        <div className="flex gap-3">
+        <div className="card-elevated grid gap-3 rounded-2xl border border-accent/30 bg-surface p-4 sm:grid-cols-3">
           <div className={`flex-1 ${inputClass}`}>
             <Calendar size={16} className="text-muted" />
-            <input
+            <div className="min-w-0 flex-1"><span className="block text-[10px] font-bold uppercase tracking-wide text-muted">Data</span><input
               type="date"
               value={dataSelecionada}
               onChange={(e) => setDataSelecionada(e.target.value)}
-              className="w-full bg-transparent outline-none [color-scheme:dark]"
-            />
+              className="w-full bg-transparent text-sm font-semibold outline-none"
+            /></div>
           </div>
           <div className={`flex-1 ${inputClass}`}>
             <Clock size={16} className="text-muted" />
-            <input
+            <div className="min-w-0 flex-1"><span className="block text-[10px] font-bold uppercase tracking-wide text-muted">Início</span><input
               type="time"
               value={horaSelecionada}
               onChange={(e) => setHoraSelecionada(e.target.value)}
-              className="w-full bg-transparent outline-none [color-scheme:dark]"
-            />
+              className="w-full bg-transparent text-sm font-semibold outline-none"
+            /></div>
           </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className={`flex-1 ${inputClass}`}>
-            <Clock size={16} className="text-muted" />
-            <input
+          <div className={inputClass}>
+            <Clock size={16} className="text-warning" />
+            <div className="min-w-0 flex-1"><span className="block text-[10px] font-bold uppercase tracking-wide text-warning">Término</span><input
               type="time"
               value={formatarHoraFinal(duracaoEfetiva)}
               onChange={(e) => handleMudarHoraFinal(e.target.value)}
-              className="w-full bg-transparent outline-none [color-scheme:dark]"
-            />
-            <span className="shrink-0 text-xs text-muted">Horário final</span>
+              className="w-full bg-transparent text-sm font-semibold text-warning outline-none"
+            /></div>
           </div>
+        </div>
+        <div className="flex justify-end">
           {duracaoManual !== null && (
             <button
               onClick={() => setDuracaoManual(null)}
@@ -689,9 +779,58 @@ function AgendamentoFormInner() {
           <Plus size={15} /> Adicionar Serviço
         </button>
 
-        <div className="card-elevated flex items-center justify-between rounded-xl bg-surface p-4">
-          <span className="text-sm text-muted">Total</span>
-          <span className="text-xl font-semibold tabular-nums text-accent">{formatarMoeda(total)}</span>
+        <div className="mt-2 flex items-center gap-2">
+          <Package size={17} className="text-accent" />
+          <p className="font-medium">Produtos da comanda</p>
+        </div>
+
+        {produtosComanda.length === 0 ? (
+          <p className="text-sm text-muted">Nenhum produto adicionado.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {produtosComanda.map((item) => (
+              <div key={item.id} className="card-elevated flex items-center gap-3 rounded-xl bg-surface p-3.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+                  <Package size={19} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-sm font-medium">{item.nome_produto}</p>
+                    <p className="shrink-0 text-sm font-semibold tabular-nums">
+                      {formatarMoeda(item.preco_unitario * item.quantidade)}
+                    </p>
+                  </div>
+                  <p className="text-xs text-muted">{formatarMoeda(item.preco_unitario)} por unidade</p>
+                </div>
+                {item.estoque_baixado ? (
+                  <span className="rounded-full bg-success/10 px-2 py-1 text-[11px] font-medium text-success">Vendido</span>
+                ) : (
+                  <div className="flex items-center rounded-xl border border-border-subtle bg-background">
+                    <button onClick={() => alterarQuantidadeProduto(item.produto_id, -1)} className="p-2 text-muted hover:text-foreground" aria-label={`Diminuir ${item.nome_produto}`}><Minus size={14} /></button>
+                    <span className="min-w-7 text-center text-sm font-semibold tabular-nums">{item.quantidade}</span>
+                    <button onClick={() => alterarQuantidadeProduto(item.produto_id, 1)} className="p-2 text-muted hover:text-foreground" aria-label={`Aumentar ${item.nome_produto}`}><Plus size={14} /></button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          onClick={() => setMostrarSeletorProduto(true)}
+          disabled={agendamentoAtual?.status === "CONCLUIDO"}
+          className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-accent/45 px-4 py-2.5 text-sm text-accent transition-colors hover:bg-accent/5 disabled:hidden"
+        >
+          <Plus size={15} /> Adicionar Produto
+        </button>
+
+        <div className="card-elevated rounded-2xl border border-accent/25 bg-surface p-4">
+          <div className="flex items-center justify-between text-sm text-muted"><span>Serviços</span><span className="tabular-nums">{formatarMoeda(totalServicos)}</span></div>
+          <div className="mt-1.5 flex items-center justify-between text-sm text-muted"><span>Produtos</span><span className="tabular-nums">{formatarMoeda(totalProdutos)}</span></div>
+          <div className="mt-3 flex items-center justify-between border-t border-border-subtle pt-3">
+            <span className="font-semibold">Total da comanda</span>
+            <span className="text-2xl font-bold tabular-nums text-accent">{formatarMoeda(total)}</span>
+          </div>
         </div>
 
         <textarea
@@ -887,6 +1026,31 @@ function AgendamentoFormInner() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {mostrarSeletorProduto && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-5 backdrop-blur-sm">
+          <div className="card-elevated flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl bg-surface p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <div><p className="font-medium">Adicionar produto</p><p className="text-xs text-muted">A baixa acontece somente ao concluir a comanda.</p></div>
+              <button onClick={() => { setMostrarSeletorProduto(false); setTermoBuscaProduto(""); }} className="text-muted hover:text-foreground"><X size={18} /></button>
+            </div>
+            <input value={termoBuscaProduto} onChange={(e) => setTermoBuscaProduto(e.target.value)} placeholder="Buscar produto" className="mb-3 rounded-xl border border-border-subtle bg-background px-3.5 py-2.5 outline-none focus:border-accent" />
+            <div className="flex flex-col gap-1 overflow-y-auto">
+              {produtos
+                .filter((produto) => !termoBuscaProduto.trim() || produto.nome.toLowerCase().includes(termoBuscaProduto.trim().toLowerCase()))
+                .map((produto) => {
+                  const quantidadeSelecionada = produtosComanda.find((item) => item.produto_id === produto.id && !item.estoque_baixado)?.quantidade ?? 0;
+                  const disponivel = produto.saldo - quantidadeSelecionada;
+                  return <button key={produto.id} onClick={() => adicionarProduto(produto)} disabled={disponivel <= 0} className="flex items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-surface-alt disabled:opacity-45">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 text-accent"><Package size={18} /></div>
+                    <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{produto.nome}</p><p className="text-xs text-muted">Estoque disponível: {Math.max(0, disponivel)} {produto.unidade}</p></div>
+                    <span className="text-sm font-semibold text-accent">{formatarMoeda(produto.preco)}</span>
+                  </button>;
+                })}
+            </div>
           </div>
         </div>
       )}

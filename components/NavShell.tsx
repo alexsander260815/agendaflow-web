@@ -19,9 +19,11 @@ import {
   LogOut,
   Menu,
   MessageSquare,
+  Moon,
   Scissors,
   Shield,
   Target,
+  Sun,
   User,
   Users,
   Wallet,
@@ -31,7 +33,8 @@ import { useAuth } from "@/lib/auth-context";
 import Avatar from "@/components/Avatar";
 import AssistenteAgenda from '@/components/AssistenteAgenda';
 import { buscarMeuSalao, listarMensagensSuporte } from "@/lib/repositories";
-import { aplicarTemaVisual } from '@/lib/theme';
+import { aplicarModoTema, aplicarTemaVisual, obterModoTema, type ModoTema } from '@/lib/theme';
+import type { Salao } from '@/lib/types';
 
 interface NavItem {
   href: string;
@@ -45,21 +48,27 @@ interface NavItem {
 const ITENS_PRINCIPAIS: NavItem[] = [
   { href: "/dashboard", label: "Início", icon: LayoutGrid },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
-  { href: "/clientes", label: "Clientes", icon: Users },
+  { href: "/financeiro", label: "Financeiro", icon: Wallet, financeiroOnly: true },
 ];
 
-const ITENS_SECUNDARIOS: NavItem[] = [
+const ITENS_GESTAO: NavItem[] = [
+  { href: "/relatorios", label: "Relatórios", icon: BarChart3, financeiroOnly: true },
+  { href: '/meta-faturamento', label: 'Meta de Faturamento', icon: Target },
+  { href: '/calculadora-preco', label: 'Calculadora de Preço', icon: Calculator },
+  { href: "/mensagens", label: "Mensagens", icon: MessageSquare },
+];
+
+const ITENS_OPERACOES: NavItem[] = [
+  { href: "/estoque", label: "Estoque", icon: Boxes, donoOnly: true },
+  { href: "/equipe", label: "Equipe", icon: HeartHandshake, donoOnly: true },
+  { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/servicos", label: "Serviços", icon: Scissors },
   { href: "/retorno-clientes", label: "Retorno de Clientes", icon: BellRing },
   { href: "/bloqueios-agenda", label: "Bloqueios de Agenda", icon: CalendarOff },
-  { href: "/financeiro", label: "Financeiro", icon: Wallet },
-  { href: '/meta-faturamento', label: 'Meta de Faturamento', icon: Target },
-  { href: '/calculadora-preco', label: 'Calculadora de Preço', icon: Calculator },
-  { href: "/estoque", label: "Estoque", icon: Boxes, donoOnly: true },
-  { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
-  { href: "/equipe", label: "Equipe", icon: HeartHandshake, donoOnly: true },
+];
+
+const ITENS_CONFIGURACOES: NavItem[] = [
   { href: "/negocio", label: "Meu Negócio", icon: Building2, donoOnly: true },
-  { href: "/mensagens", label: "Mensagens", icon: MessageSquare },
   { href: "/pagamentos", label: "Pagamentos", icon: Landmark, donoOnly: true },
   { href: "/planos", label: "Planos", icon: CreditCard, donoOnly: true },
   { href: "/perfil", label: "Meu Perfil", icon: User },
@@ -74,9 +83,17 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [mostrarMais, setMostrarMais] = useState(false);
   const [contagemSuporte, setContagemSuporte] = useState(0);
+  const [salao, setSalao] = useState<Salao | null>(null);
+  const [modoTema, setModoTema] = useState<ModoTema>('escuro');
 
   useEffect(() => {
-    setMostrarMais(false);
+    const frame = requestAnimationFrame(() => setModoTema(obterModoTema()));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setMostrarMais(false));
+    return () => cancelAnimationFrame(frame);
   }, [pathname]);
 
   useEffect(() => {
@@ -86,8 +103,13 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
       return;
     }
     buscarMeuSalao(perfil.salao_id)
-      .then((salao) => aplicarTemaVisual(salao?.tema_visual))
+      .then((salaoAtual) => { setSalao(salaoAtual); aplicarTemaVisual(salaoAtual?.tema_visual); })
       .catch(() => aplicarTemaVisual());
+  }, [perfil]);
+
+  useEffect(() => {
+    if (!perfil) return;
+    buscarMeuSalao(perfil.salao_id).then(setSalao).catch(() => setSalao(null));
   }, [perfil]);
 
   useEffect(() => {
@@ -117,8 +139,14 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
     return true;
   };
 
+  const grupos = [
+    { titulo: 'Principal', itens: ITENS_PRINCIPAIS.filter(podeVer) },
+    { titulo: 'Gestão', itens: ITENS_GESTAO.filter(podeVer) },
+    { titulo: 'Operações', itens: ITENS_OPERACOES.filter(podeVer) },
+    { titulo: 'Configurações', itens: [...ITENS_CONFIGURACOES.filter(podeVer), ...(souSuperAdmin ? [{ ...ITEM_PAINEL_ADMIN, badge: contagemSuporte || undefined }] : [])] },
+  ];
   const secundariosVisiveis = [
-    ...ITENS_SECUNDARIOS.filter(podeVer),
+    ...ITENS_GESTAO.filter(podeVer), ...ITENS_OPERACOES.filter(podeVer), ...ITENS_CONFIGURACOES.filter(podeVer),
     ...(souSuperAdmin ? [{ ...ITEM_PAINEL_ADMIN, badge: contagemSuporte > 0 ? contagemSuporte : undefined }] : []),
   ];
 
@@ -127,24 +155,36 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
     router.replace("/login");
   }
 
+  function alternarModoTema() {
+    const proximo: ModoTema = modoTema === 'escuro' ? 'claro' : 'escuro';
+    setModoTema(proximo);
+    aplicarModoTema(proximo);
+  }
+
+  const itensRodape = [
+    { href: '/dashboard', label: 'Início', icon: LayoutGrid },
+    { href: '/agenda', label: 'Agenda', icon: CalendarDays },
+    { href: '/clientes', label: 'Clientes', icon: Users },
+    { href: '/servicos', label: 'Serviços', icon: Scissors },
+    ...(mostrarFinanceiro ? [{ href: '/financeiro', label: 'Financeiro', icon: Wallet }] : []),
+  ];
+
   return (
-    <div className="flex flex-1 flex-col md:flex-row">
+    <div className="premium-shell flex min-h-dvh flex-1 flex-col md:flex-row">
       {/* Sidebar desktop */}
-      <aside className="hidden md:flex md:w-60 md:flex-col md:border-r md:border-border-subtle md:bg-surface">
-        <div className="flex items-center gap-2.5 px-5 py-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/15">
-            <CalendarDays size={20} className="text-accent" strokeWidth={2.25} />
+      <aside className="hidden md:flex md:w-72 md:flex-col md:border-r md:border-border-subtle md:bg-surface/92 md:backdrop-blur-xl">
+        <div className="flex items-center gap-3 border-b border-border-subtle px-5 py-5">
+          <Avatar nome={salao?.nome || 'AgendaFlow'} fotoUrl={salao?.logo_url} className="h-16 w-16 rounded-2xl text-lg ring-1 ring-accent/40" />
+          <div className="min-w-0">
+            <p className="truncate text-base font-semibold">{salao?.nome || 'AgendaFlow'}</p>
+            <p className="truncate text-xs text-muted">{perfil.nome} · {perfil.papel}</p>
           </div>
-          <span className="font-semibold tracking-tight">AgendaFlow</span>
         </div>
-        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3">
-          {ITENS_PRINCIPAIS.map((item) => (
-            <NavLink key={item.href} item={item} ativo={pathname === item.href} />
-          ))}
-          {secundariosVisiveis.length > 0 && <div className="my-2 border-t border-border-subtle" />}
-          {secundariosVisiveis.map((item) => (
-            <NavLink key={item.href} item={item} ativo={pathname === item.href} />
-          ))}
+        <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-4">
+          {grupos.map((grupo) => grupo.itens.length > 0 && <div key={grupo.titulo}>
+            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[.16em] text-muted">{grupo.titulo}</p>
+            <div className="space-y-1">{grupo.itens.map((item) => <NavLink key={item.href} item={item} ativo={pathname === item.href} />)}</div>
+          </div>)}
         </nav>
         <div className="flex items-center gap-3 border-t border-border-subtle px-4 py-4">
           <Avatar nome={perfil.nome} fotoUrl={perfil.foto_url} className="h-9 w-9 text-xs" />
@@ -152,6 +192,11 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
             <p className="truncate text-sm font-medium">{perfil.nome}</p>
             <p className="truncate text-xs text-muted">{perfil.papel}</p>
           </div>
+          <button
+            onClick={alternarModoTema}
+            aria-label={modoTema === 'escuro' ? 'Ativar modo claro' : 'Ativar modo escuro'}
+            className="rounded-xl border border-border-subtle p-2 text-muted transition hover:bg-surface-alt hover:text-accent"
+          >{modoTema === 'escuro' ? <Sun size={18} /> : <Moon size={18} />}</button>
           <button
             onClick={handleLogout}
             aria-label="Sair"
@@ -167,20 +212,12 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
       <AssistenteAgenda />
 
       {/* Bottom tabs mobile */}
-      <nav className="fixed bottom-0 left-0 right-0 z-20 flex border-t border-border-subtle bg-surface/95 backdrop-blur-md md:hidden">
-        {ITENS_PRINCIPAIS.map((item) => (
+      <nav className="premium-nav-glow fixed bottom-2 left-2 right-2 z-20 flex rounded-2xl border border-border-subtle bg-surface/95 px-1 py-1 backdrop-blur-xl md:hidden">
+        {itensRodape.map((item) => (
           <TabLink key={item.href} item={item} ativo={pathname === item.href} />
         ))}
-        <button
-          onClick={() => setMostrarMais(true)}
-          className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] transition-colors ${
-            mostrarMais || secundariosVisiveis.some((i) => i.href === pathname) ? "text-accent" : "text-muted"
-          }`}
-        >
-          <Menu size={21} />
-          Mais
-        </button>
       </nav>
+      <button onClick={() => setMostrarMais(true)} aria-label="Abrir mais opções" className="fixed bottom-20 right-4 z-20 rounded-2xl border border-accent/30 bg-surface p-3 text-accent shadow-lg md:hidden"><Menu size={23} /></button>
 
       {mostrarMais && (
         <div className="fixed inset-0 z-30 flex items-end bg-black/60 backdrop-blur-sm md:hidden" onClick={() => setMostrarMais(false)}>
@@ -190,9 +227,7 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
           >
             <div className="mb-2 flex shrink-0 items-center justify-between px-2 py-2">
               <span className="text-sm font-medium text-muted">Mais opções</span>
-              <button onClick={() => setMostrarMais(false)} className="text-muted">
-                <X size={18} />
-              </button>
+              <div className="flex gap-2"><button onClick={alternarModoTema} className="rounded-lg p-2 text-accent">{modoTema === 'escuro' ? <Sun size={19} /> : <Moon size={19} />}</button><button onClick={() => setMostrarMais(false)} className="p-2 text-muted"><X size={18} /></button></div>
             </div>
             <div className="flex flex-col gap-1 overflow-y-auto">
               {secundariosVisiveis.map((item) => {

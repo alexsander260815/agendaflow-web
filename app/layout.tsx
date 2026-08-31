@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import NativeAppBridge from "@/components/NativeAppBridge";
+import Script from "next/script";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,9 +45,11 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        <Script id="agendaflow-theme" strategy="beforeInteractive">{`try{document.documentElement.dataset.mode=localStorage.getItem('agendaflow_modo_tema')==='claro'?'claro':'escuro'}catch(e){document.documentElement.dataset.mode='escuro'}`}</Script>
         <NativeAppBridge />
         <AuthProvider>{children}</AuthProvider>
       </body>

@@ -203,6 +203,18 @@ export interface Produto {
   minimo: number;
 }
 
+export interface ProdutoComanda {
+  id: string;
+  salao_id: string;
+  agendamento_id: string;
+  produto_id: string;
+  nome_produto: string;
+  preco_unitario: number;
+  quantidade: number;
+  estoque_baixado: boolean;
+  criado_em?: string;
+}
+
 export interface MovimentacaoEstoque {
   id: string;
   salao_id: string;
