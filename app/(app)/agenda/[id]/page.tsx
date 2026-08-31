@@ -14,6 +14,7 @@ import {
   Package,
   Pencil,
   Plus,
+  Repeat,
   RotateCcw,
   Scissors,
   Trash2,
@@ -126,6 +127,7 @@ function AgendamentoFormInner() {
   const [mostrarPagamento, setMostrarPagamento] = useState(false);
   const [diasParaRetorno, setDiasParaRetorno] = useState("");
   const [mostrarExclusao, setMostrarExclusao] = useState(false);
+  const [mostrarExclusaoSerie, setMostrarExclusaoSerie] = useState(false);
   const [mensagemConflito, setMensagemConflito] = useState<string | null>(null);
   const [indiceEditandoPreco, setIndiceEditandoPreco] = useState<number | null>(null);
   const [precoEditado, setPrecoEditado] = useState("");
@@ -139,6 +141,11 @@ function AgendamentoFormInner() {
   const [mensagemErroConcluir, setMensagemErroConcluir] = useState<string | null>(null);
   const [alterandoStatus, setAlterandoStatus] = useState(false);
   const [mensagemErroStatus, setMensagemErroStatus] = useState<string | null>(null);
+  const [repetir, setRepetir] = useState(false);
+  const [frequenciaRepeticao, setFrequenciaRepeticao] = useState<"SEMANAL" | "QUINZENAL" | "MENSAL">("SEMANAL");
+  const [quantidadeRepeticoes, setQuantidadeRepeticoes] = useState("4");
+  const [mensagemRecorrencia, setMensagemRecorrencia] = useState<string | null>(null);
+  const [excluindoSerie, setExcluindoSerie] = useState(false);
 
   async function handleGerarCobrancaPix() {
     if (!agendamentoAtual?.id || !clienteSelecionado) return;
@@ -413,18 +420,13 @@ function AgendamentoFormInner() {
     setDuracaoManual(diferenca);
   }
 
-  async function verificarConflito(): Promise<string | null> {
-    if (!profissionalSelecionadoId) return null;
+  async function buscarDadosConflito() {
     if (!perfil) return null;
-
-    const duracaoTotal = duracaoEfetiva;
-    const dataHoraMillis = calcularDataHoraMillis();
-    const fimNovo = dataHoraMillis + duracaoTotal * 60_000;
-
-    const [todos, todosItens, todosClientes] = await Promise.all([
+    const [todos, todosItens, todosClientes, bloqueios] = await Promise.all([
       listarAgendamentos(perfil.salao_id),
       listarAgendamentoServicos(perfil.salao_id),
       listarClientes(perfil.salao_id),
+      listarBloqueiosAgenda(perfil.salao_id),
     ]);
     const itensPorAgendamento = new Map<string, AgendamentoServico[]>();
     todosItens.forEach((i) => {
@@ -433,13 +435,23 @@ function AgendamentoFormInner() {
       itensPorAgendamento.set(i.agendamento_id, lista);
     });
     const clientesMap = new Map(todosClientes.map((c) => [c.id, c.nome]));
+    return { todos, itensPorAgendamento, clientesMap, bloqueios };
+  }
 
-    for (const outro of todos) {
+  function checarConflitoEm(
+    dados: NonNullable<Awaited<ReturnType<typeof buscarDadosConflito>>>,
+    dataHoraMillis: number,
+    duracaoMinutos: number
+  ): string | null {
+    if (!profissionalSelecionadoId) return null;
+    const fimNovo = dataHoraMillis + duracaoMinutos * 60_000;
+
+    for (const outro of dados.todos) {
       if (outro.id === agendamentoId) continue;
       if (outro.profissional_id !== profissionalSelecionadoId) continue;
       if (outro.status === "FALTOU" || outro.status === "CANCELADO") continue;
       const outroInicio = converterIsoParaMillis(outro.data_hora);
-      const itensOutro = itensPorAgendamento.get(outro.id) ?? [];
+      const itensOutro = dados.itensPorAgendamento.get(outro.id) ?? [];
       const duracaoOutro =
         outro.duracao_minutos ??
         (itensOutro.reduce((soma, i) => {
@@ -449,15 +461,14 @@ function AgendamentoFormInner() {
       const outroFim = outroInicio + duracaoOutro * 60_000;
 
       if (dataHoraMillis < outroFim && fimNovo > outroInicio) {
-        const nomeCliente = clientesMap.get(outro.cliente_id) ?? "outro cliente";
+        const nomeCliente = dados.clientesMap.get(outro.cliente_id) ?? "outro cliente";
         const d = new Date(outroInicio);
         const hora = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
         return `Já existe um agendamento às ${hora} com ${nomeCliente} para esse profissional.`;
       }
     }
 
-    const bloqueios = await listarBloqueiosAgenda(perfil.salao_id);
-    for (const b of bloqueios) {
+    for (const b of dados.bloqueios) {
       if (b.profissional_id !== profissionalSelecionadoId) continue;
       const bloqueioInicio = converterIsoParaMillis(b.data_inicio);
       const bloqueioFim = converterIsoParaMillis(b.data_fim);
@@ -467,6 +478,21 @@ function AgendamentoFormInner() {
     }
 
     return null;
+  }
+
+  async function verificarConflito(): Promise<string | null> {
+    if (!profissionalSelecionadoId || !perfil) return null;
+    const dados = await buscarDadosConflito();
+    if (!dados) return null;
+    return checarConflitoEm(dados, calcularDataHoraMillis(), duracaoEfetiva);
+  }
+
+  function proximaDataRecorrencia(dataHoraMillis: number, frequencia: typeof frequenciaRepeticao, passo: number): number {
+    const d = new Date(dataHoraMillis);
+    if (frequencia === "SEMANAL") d.setDate(d.getDate() + 7 * passo);
+    else if (frequencia === "QUINZENAL") d.setDate(d.getDate() + 14 * passo);
+    else d.setMonth(d.getMonth() + passo);
+    return d.getTime();
   }
 
   async function handleSalvar(ignorarConflito = false) {
@@ -482,9 +508,12 @@ function AgendamentoFormInner() {
         }
       }
 
-      const dataHoraIso = converterMillisParaIso(calcularDataHoraMillis());
+      const dataHoraMillisBase = calcularDataHoraMillis();
+      const dataHoraIso = converterMillisParaIso(dataHoraMillisBase);
       const profissionalFinal = usuarioEProfissional ? perfil.id : profissionalSelecionadoId;
       const id = agendamentoId ?? crypto.randomUUID();
+      const quantidadeSerie = Math.min(24, Math.max(1, parseInt(quantidadeRepeticoes, 10) || 1));
+      const recorrenciaId = !editando && repetir && quantidadeSerie > 1 ? crypto.randomUUID() : null;
 
       if (editando && agendamentoId) {
         await atualizarAgendamento(agendamentoId, {
@@ -497,6 +526,7 @@ function AgendamentoFormInner() {
           observacoes,
           forma_pagamento: agendamentoAtual?.forma_pagamento ?? null,
           duracao_minutos: duracaoManual,
+          recorrencia_id: agendamentoAtual?.recorrencia_id ?? null,
         });
       } else {
         await salvarAgendamentoRepo({
@@ -509,6 +539,7 @@ function AgendamentoFormInner() {
           status: "AGENDADO",
           observacoes,
           forma_pagamento: null,
+          recorrencia_id: recorrenciaId,
         });
       }
 
@@ -543,6 +574,58 @@ function AgendamentoFormInner() {
           total: itensParaSalvar.reduce((soma, i) => soma + i.preco, 0),
           quantidade_itens: itensParaSalvar.length,
         });
+      }
+
+      // Gera as próximas ocorrências da série (a primeira já foi salva acima
+      // com o id `id`). Produtos não são repetidos — cada atendimento futuro
+      // recebe o que for adicionado nele na hora. Ocorrência que colidir com
+      // outro agendamento/bloqueio é pulada, não trava a série inteira.
+      if (recorrenciaId && quantidadeSerie > 1) {
+        const dados = await buscarDadosConflito();
+        const puladas: string[] = [];
+        if (dados) {
+          for (let passo = 1; passo < quantidadeSerie; passo++) {
+            const novaDataMillis = proximaDataRecorrencia(dataHoraMillisBase, frequenciaRepeticao, passo);
+            const conflito = checarConflitoEm(dados, novaDataMillis, duracaoEfetiva);
+            if (conflito) {
+              puladas.push(new Date(novaDataMillis).toLocaleDateString("pt-BR"));
+              continue;
+            }
+            const novoId = crypto.randomUUID();
+            await salvarAgendamentoRepo({
+              id: novoId,
+              salao_id: perfil.salao_id,
+              duracao_minutos: duracaoManual,
+              cliente_id: clienteSelecionado.id,
+              profissional_id: profissionalFinal,
+              data_hora: converterMillisParaIso(novaDataMillis),
+              status: "AGENDADO",
+              observacoes,
+              forma_pagamento: null,
+              recorrencia_id: recorrenciaId,
+            });
+            await salvarItensComanda(
+              novoId,
+              itensComanda.map((item) => ({
+                id: crypto.randomUUID(),
+                salao_id: perfil.salao_id,
+                agendamento_id: novoId,
+                servico_id: item.servico.id,
+                nome_servico: item.servico.nome,
+                preco: item.precoCobrado,
+                cliente_pacote_id: item.clientePacoteId,
+                pacote_descontado: false,
+                comissao_fechada: false,
+              }))
+            );
+          }
+        }
+        if (puladas.length > 0) {
+          setMensagemRecorrencia(
+            `Criado, mas ${puladas.length} data(s) da série não deu pra agendar por conflito de horário: ${puladas.join(", ")}.`
+          );
+          return;
+        }
       }
 
       voltarParaAgenda();
@@ -701,6 +784,34 @@ function AgendamentoFormInner() {
     }
   }
 
+  // Exclui esta ocorrência e as futuras da mesma série que ainda não
+  // aconteceram (AGENDADO/CONFIRMADO) — nunca mexe em ocorrências já
+  // concluídas, canceladas ou marcadas falta, mesmo que sejam "futuras" na
+  // data (ex: reaberta manualmente com outra data).
+  async function handleExcluirSerieFutura() {
+    if (!perfil || !agendamentoId || !agendamentoAtual?.recorrencia_id) return;
+    setAlterandoStatus(true);
+    setMensagemErroStatus(null);
+    try {
+      const estaData = converterIsoParaMillis(agendamentoAtual.data_hora);
+      const todos = await listarAgendamentos(perfil.salao_id);
+      const daSerie = todos.filter(
+        (a) =>
+          a.recorrencia_id === agendamentoAtual.recorrencia_id &&
+          converterIsoParaMillis(a.data_hora) >= estaData &&
+          (a.status === "AGENDADO" || a.status === "CONFIRMADO")
+      );
+      for (const ag of daSerie) {
+        await deletarAgendamentoRepo(ag.id);
+      }
+      voltarParaAgenda();
+    } catch (e) {
+      setMostrarExclusaoSerie(false);
+      setMensagemErroStatus(e instanceof Error ? e.message : "Não foi possível excluir a série.");
+    } finally {
+      setAlterandoStatus(false);
+    }
+  }
 
   const podeSalvar = clienteSelecionado !== null && itensComanda.length > 0;
   const profissionalSelecionado = equipe.find((profissional) => profissional.id === profissionalSelecionadoId) ?? null;
@@ -785,6 +896,67 @@ function AgendamentoFormInner() {
             </button>
           )}
         </div>
+
+        {!editando && (
+          <div className="card-elevated rounded-2xl border border-border-subtle bg-surface p-4">
+            <label className="flex items-center justify-between">
+              <span className="flex items-center gap-2 font-medium">
+                <Repeat size={16} className="text-accent" /> Repetir agendamento
+              </span>
+              <Toggle valor={repetir} onMudar={setRepetir} />
+            </label>
+            {repetir && (
+              <div className="mt-3 flex flex-col gap-3 border-t border-border-subtle pt-3 sm:flex-row">
+                <select
+                  value={frequenciaRepeticao}
+                  onChange={(e) => setFrequenciaRepeticao(e.target.value as typeof frequenciaRepeticao)}
+                  className="flex-1 rounded-xl border border-border-subtle bg-background px-3 py-2.5 text-sm outline-none focus:border-accent"
+                >
+                  <option value="SEMANAL">Toda semana</option>
+                  <option value="QUINZENAL">A cada 2 semanas</option>
+                  <option value="MENSAL">Todo mês</option>
+                </select>
+                <div className="flex flex-1 items-center gap-2">
+                  <input
+                    type="number"
+                    min={2}
+                    max={24}
+                    value={quantidadeRepeticoes}
+                    onChange={(e) => setQuantidadeRepeticoes(e.target.value.replace(/\D/g, ""))}
+                    className="w-20 rounded-xl border border-border-subtle bg-background px-3 py-2.5 text-sm outline-none focus:border-accent"
+                  />
+                  <span className="text-sm text-muted">vezes no total</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {editando && agendamentoAtual?.recorrencia_id && (
+          <div className="card-elevated flex items-center justify-between gap-3 rounded-2xl border border-accent/30 bg-accent/5 p-4">
+            <span className="flex items-center gap-2 text-sm">
+              <Repeat size={16} className="text-accent" /> Faz parte de um agendamento recorrente
+            </span>
+            <button
+              onClick={() => setMostrarExclusaoSerie(true)}
+              className="whitespace-nowrap text-sm text-danger transition-colors hover:underline"
+            >
+              Excluir esta e as futuras
+            </button>
+          </div>
+        )}
+
+        {mensagemRecorrencia && (
+          <div className="card-elevated flex flex-col gap-2 rounded-2xl border border-warning/30 bg-warning/10 p-4 text-sm">
+            <p>{mensagemRecorrencia}</p>
+            <button
+              onClick={voltarParaAgenda}
+              className="self-start rounded-lg bg-warning px-3 py-1.5 text-xs font-medium text-warning-foreground"
+            >
+              Entendi, voltar pra agenda
+            </button>
+          </div>
+        )}
 
         <div className="mt-2 flex items-center gap-2">
           <Scissors size={16} className="text-accent" />
@@ -1241,7 +1413,49 @@ function AgendamentoFormInner() {
           </div>
         </div>
       )}
+
+      {mostrarExclusaoSerie && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-5 backdrop-blur-sm">
+          <div className="card-elevated w-full max-w-sm rounded-2xl bg-surface p-5">
+            <p className="mb-2 font-medium">Excluir esta e as futuras?</p>
+            <p className="mb-4 text-sm text-muted">
+              Remove esta ocorrência e todas as futuras dessa série que ainda não aconteceram. Atendimentos já
+              concluídos, cancelados ou marcados falta não são afetados. Essa ação não pode ser desfeita.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setMostrarExclusaoSerie(false)}
+                disabled={alterandoStatus}
+                className="rounded-lg px-4 py-2 text-sm text-muted transition-colors hover:bg-surface-alt disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleExcluirSerieFutura}
+                disabled={alterandoStatus}
+                className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+              >
+                {alterandoStatus ? "Excluindo..." : "Excluir série"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function Toggle({ valor, onMudar }: { valor: boolean; onMudar: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onMudar(!valor)}
+      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${valor ? "bg-accent" : "bg-surface-alt"}`}
+    >
+      <span
+        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${valor ? "translate-x-5" : "translate-x-0.5"}`}
+      />
+    </button>
   );
 }
 

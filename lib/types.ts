@@ -124,6 +124,7 @@ export interface Agendamento {
   sinal_chave_pix?: string | null;
   sinal_nome_beneficiario?: string | null;
   sinal_cidade?: string | null;
+  recorrencia_id?: string | null; // agrupa ocorrências geradas juntas por um agendamento recorrente
 }
 
 export interface AgendamentoServico {
