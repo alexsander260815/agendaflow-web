@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   Cake,
   ClipboardList,
+  Download,
   FileSignature,
   History,
   Package,
@@ -15,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { exportarCsvSecoes } from "@/lib/exportar";
 import {
   atualizarCliente,
   buscarCliente,
@@ -197,17 +199,68 @@ export default function ClienteFormPage() {
     listarClientePacotesPorCliente(clienteId).then(setPacotesDoCliente);
   }
 
+  // Exportação de dados do cliente pra atender pedido de portabilidade (LGPD)
+  // — reúne cadastro, pacotes e histórico de atendimentos num único CSV.
+  function handleExportarDados() {
+    exportarCsvSecoes(`dados_${nome.replace(/\s+/g, "_")}`, [
+      {
+        titulo: "Dados cadastrais",
+        colunas: [
+          { chave: "nome", rotulo: "Nome" },
+          { chave: "telefone", rotulo: "Telefone" },
+          { chave: "aniversario", rotulo: "Aniversário" },
+          { chave: "observacoes", rotulo: "Observações" },
+        ],
+        linhas: [{ nome, telefone, aniversario: aniversario || "", observacoes }],
+      },
+      {
+        titulo: "Pacotes comprados",
+        colunas: [
+          { chave: "nome_pacote", rotulo: "Pacote" },
+          { chave: "quantidade_restante", rotulo: "Sessões restantes" },
+        ],
+        linhas: pacotesDoCliente,
+      },
+      {
+        titulo: "Histórico de atendimentos",
+        colunas: [
+          { chave: "data", rotulo: "Data" },
+          { chave: "profissional", rotulo: "Profissional" },
+          { chave: "servicos", rotulo: "Serviços" },
+          { chave: "valor", rotulo: "Valor" },
+          { chave: "status", rotulo: "Status" },
+        ],
+        linhas: historico.map((a) => ({
+          data: formatarDataHora(a.dataHoraMillis),
+          profissional: a.nomeProfissional,
+          servicos: a.nomesServicos,
+          valor: formatarMoeda(a.valorTotal),
+          status: formatarStatus(a.status),
+        })),
+      },
+    ]);
+  }
+
   return (
     <div className="mx-auto max-w-2xl p-5 pb-16 md:p-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">{editando ? "Editar Cliente" : "Novo Cliente"}</h1>
         {editando && (
-          <button
-            onClick={() => setMostrarConfirmacaoExclusao(true)}
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-danger transition-colors hover:bg-danger/10"
-          >
-            <Trash2 size={15} /> Excluir
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleExportarDados}
+              title="Exportar dados do cliente (LGPD)"
+              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-muted transition-colors hover:bg-surface"
+            >
+              <Download size={15} /> Exportar dados
+            </button>
+            <button
+              onClick={() => setMostrarConfirmacaoExclusao(true)}
+              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-danger transition-colors hover:bg-danger/10"
+            >
+              <Trash2 size={15} /> Excluir
+            </button>
+          </div>
         )}
       </div>
 

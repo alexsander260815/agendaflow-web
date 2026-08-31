@@ -28,3 +28,33 @@ export function exportarCsv(nomeArquivo: string, colunas: ColunaExportacao[], li
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+export interface SecaoExportacao {
+  titulo: string;
+  colunas: ColunaExportacao[];
+  linhas: unknown[];
+}
+
+// Usado pra exportação de dados do cliente (LGPD/portabilidade) — várias
+// tabelas relacionadas (cadastro, pacotes, histórico) num único CSV, cada uma
+// com seu próprio título e cabeçalho, separadas por linha em branco.
+export function exportarCsvSecoes(nomeArquivo: string, secoes: SecaoExportacao[]): void {
+  const blocos = secoes.map((secao) => {
+    const cabecalho = secao.colunas.map((c) => celulaParaCsv(c.rotulo)).join(";");
+    const corpo = secao.linhas
+      .map((linha) => secao.colunas.map((c) => celulaParaCsv((linha as Record<string, unknown>)[c.chave])).join(";"))
+      .join("\n");
+    return [celulaParaCsv(secao.titulo), cabecalho, corpo].filter(Boolean).join("\n");
+  });
+  const csv = "﻿" + blocos.join("\n\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${nomeArquivo}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
