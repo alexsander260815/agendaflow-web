@@ -32,9 +32,10 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import Avatar from "@/components/Avatar";
 import AssistenteAgenda from '@/components/AssistenteAgenda';
-import { buscarMeuSalao, listarMensagensSuporte } from "@/lib/repositories";
+import { buscarMeuSalao, buscarMinhaAssinatura, listarMensagensSuporte } from "@/lib/repositories";
 import { aplicarModoTema, aplicarTemaVisual, obterModoTema, type ModoTema } from '@/lib/theme';
 import type { Salao } from '@/lib/types';
+import { Lock } from "lucide-react";
 
 interface NavItem {
   href: string;
@@ -85,6 +86,8 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
   const [contagemSuporte, setContagemSuporte] = useState(0);
   const [salao, setSalao] = useState<Salao | null>(null);
   const [modoTema, setModoTema] = useState<ModoTema>('escuro');
+  const [acessoLiberado, setAcessoLiberado] = useState(true);
+  const [verificandoAcesso, setVerificandoAcesso] = useState(true);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => setModoTema(obterModoTema()));
@@ -119,18 +122,50 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
       .catch(() => setContagemSuporte(0));
   }, [souSuperAdmin]);
 
+  // Mesma regra do app Android (AcessoViewModel): libera se a assinatura está
+  // ATIVA, se o trial de 7 dias ainda não venceu, ou se um admin liberou acesso
+  // manualmente. Em caso de erro de rede, libera (não trava o usuário à toa).
+  useEffect(() => {
+    if (!perfil) return;
+    let cancelado = false;
+    Promise.all([buscarMeuSalao(perfil.salao_id), buscarMinhaAssinatura(perfil.salao_id)])
+      .then(([salaoAtual, assinatura]) => {
+        if (cancelado) return;
+        const assinaturaAtiva = assinatura?.status === "ATIVA";
+        const trialFimMillis = salaoAtual?.trial_fim ? new Date(salaoAtual.trial_fim).getTime() : null;
+        const trialAindaValido = trialFimMillis !== null && Date.now() < trialFimMillis;
+        const liberadoManualmente = salaoAtual?.acesso_liberado_manualmente ?? false;
+        setAcessoLiberado(assinaturaAtiva || trialAindaValido || liberadoManualmente);
+      })
+      .catch(() => {
+        if (!cancelado) setAcessoLiberado(true);
+      })
+      .finally(() => {
+        if (!cancelado) setVerificandoAcesso(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [perfil]);
+
   useEffect(() => {
     if (!carregando && !perfil) {
       router.replace("/login");
     }
   }, [carregando, perfil, router]);
 
-  if (carregando || !perfil) {
+  if (carregando || !perfil || verificandoAcesso) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
       </div>
     );
+  }
+
+  // /planos fica sempre acessível mesmo bloqueado — senão o Dono nunca
+  // conseguiria chegar lá pra assinar e destravar o próprio acesso.
+  if (!acessoLiberado && !souSuperAdmin && pathname !== "/planos") {
+    return <AcessoBloqueado ehDono={perfil.papel === "DONO"} onSair={handleLogout} />;
   }
 
   const podeVer = (item: NavItem) => {
@@ -282,6 +317,36 @@ function NavLink({ item, ativo }: { item: NavItem; ativo: boolean }) {
         </span>
       )}
     </Link>
+  );
+}
+
+function AcessoBloqueado({ ehDono, onSair }: { ehDono: boolean; onSair: () => void }) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
+      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-warning/15 text-warning">
+        <Lock size={36} />
+      </div>
+      <h1 className="text-xl font-semibold">Período de teste encerrado</h1>
+      <p className="max-w-sm text-sm text-muted">
+        {ehDono
+          ? "Seu período gratuito de 7 dias terminou. Escolha um plano para continuar usando o AgendaFlow."
+          : "O período de teste do seu salão terminou. Peça ao Dono para assinar um plano."}
+      </p>
+      {ehDono && (
+        <Link
+          href="/planos"
+          className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"
+        >
+          Ver planos
+        </Link>
+      )}
+      <button
+        onClick={onSair}
+        className="rounded-xl border border-border-subtle px-5 py-2.5 text-sm transition-colors hover:bg-surface-alt"
+      >
+        Sair
+      </button>
+    </div>
   );
 }
 

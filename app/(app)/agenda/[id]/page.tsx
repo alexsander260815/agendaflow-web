@@ -46,6 +46,7 @@ import {
   listarProdutosDaComanda,
   salvarProdutosDaComanda,
   concluirVendaProdutos,
+  estornarComanda,
 } from "@/lib/repositories";
 import { criarRetornoCliente, listarBloqueiosAgenda } from "@/lib/repositories";
 import { registrarAuditoria } from "@/lib/auditoria";
@@ -136,6 +137,8 @@ function AgendamentoFormInner() {
   const [mensagemSinal, setMensagemSinal] = useState<string | null>(null);
   const [concluindo, setConcluindo] = useState(false);
   const [mensagemErroConcluir, setMensagemErroConcluir] = useState<string | null>(null);
+  const [alterandoStatus, setAlterandoStatus] = useState(false);
+  const [mensagemErroStatus, setMensagemErroStatus] = useState<string | null>(null);
 
   async function handleGerarCobrancaPix() {
     if (!agendamentoAtual?.id || !clienteSelecionado) return;
@@ -602,10 +605,29 @@ function AgendamentoFormInner() {
     }
   }
 
+  // Se a comanda já estava CONCLUIDO (produto/pacote já descontados) e agora
+  // está sendo cancelada, marcada como falta, ou reaberta, devolve tudo que
+  // tinha sido descontado — senão cancelar ou reabrir uma comanda concluída
+  // perdia estoque e sessão de pacote pra sempre (o Android já trata isso).
+  async function estornarSeConcluida() {
+    if (agendamentoAtual?.status === "CONCLUIDO" && agendamentoId) {
+      await estornarComanda(agendamentoId);
+    }
+  }
+
   async function handleMarcarFalta() {
     if (!agendamentoAtual || !agendamentoId) return;
-    await atualizarAgendamento(agendamentoId, { ...agendamentoAtual, status: "FALTOU" });
-    voltarParaAgenda();
+    setAlterandoStatus(true);
+    setMensagemErroStatus(null);
+    try {
+      await estornarSeConcluida();
+      await atualizarAgendamento(agendamentoId, { ...agendamentoAtual, status: "FALTOU" });
+      voltarParaAgenda();
+    } catch (e) {
+      setMensagemErroStatus(e instanceof Error ? e.message : "Não foi possível marcar como falta.");
+    } finally {
+      setAlterandoStatus(false);
+    }
   }
 
   async function handleMarcarConfirmado() {
@@ -616,28 +638,56 @@ function AgendamentoFormInner() {
 
   async function handleMarcarCancelado() {
     if (!agendamentoAtual || !agendamentoId) return;
-    await atualizarAgendamento(agendamentoId, { ...agendamentoAtual, status: "CANCELADO" });
-    voltarParaAgenda();
+    setAlterandoStatus(true);
+    setMensagemErroStatus(null);
+    try {
+      await estornarSeConcluida();
+      await atualizarAgendamento(agendamentoId, { ...agendamentoAtual, status: "CANCELADO" });
+      voltarParaAgenda();
+    } catch (e) {
+      setMensagemErroStatus(e instanceof Error ? e.message : "Não foi possível cancelar o agendamento.");
+    } finally {
+      setAlterandoStatus(false);
+    }
   }
 
   async function handleReabrir() {
     if (!agendamentoAtual || !agendamentoId) return;
-    await atualizarAgendamento(agendamentoId, { ...agendamentoAtual, status: "AGENDADO" });
-    setAgendamentoAtual({ ...agendamentoAtual, status: "AGENDADO" });
+    setAlterandoStatus(true);
+    setMensagemErroStatus(null);
+    try {
+      await estornarSeConcluida();
+      await atualizarAgendamento(agendamentoId, { ...agendamentoAtual, status: "AGENDADO" });
+      setAgendamentoAtual({ ...agendamentoAtual, status: "AGENDADO" });
+    } catch (e) {
+      setMensagemErroStatus(e instanceof Error ? e.message : "Não foi possível reabrir o agendamento.");
+    } finally {
+      setAlterandoStatus(false);
+    }
   }
 
   async function handleExcluir() {
     if (!agendamentoId) return;
-    await deletarAgendamentoRepo(agendamentoId);
-    if (perfil && agendamentoAtual) {
-      registrarAuditoria(perfil.salao_id, perfil.id, "cancelar_agendamento", "agendamento", agendamentoId, {
-        cliente_id: agendamentoAtual.cliente_id,
-        profissional_id: agendamentoAtual.profissional_id,
-        data_hora: agendamentoAtual.data_hora,
-        status: agendamentoAtual.status,
-      });
+    setAlterandoStatus(true);
+    setMensagemErroStatus(null);
+    try {
+      await estornarSeConcluida();
+      await deletarAgendamentoRepo(agendamentoId);
+      if (perfil && agendamentoAtual) {
+        registrarAuditoria(perfil.salao_id, perfil.id, "cancelar_agendamento", "agendamento", agendamentoId, {
+          cliente_id: agendamentoAtual.cliente_id,
+          profissional_id: agendamentoAtual.profissional_id,
+          data_hora: agendamentoAtual.data_hora,
+          status: agendamentoAtual.status,
+        });
+      }
+      voltarParaAgenda();
+    } catch (e) {
+      setMostrarExclusao(false);
+      setMensagemErroStatus(e instanceof Error ? e.message : "Não foi possível excluir o agendamento.");
+    } finally {
+      setAlterandoStatus(false);
     }
-    voltarParaAgenda();
   }
 
 
@@ -901,12 +951,16 @@ function AgendamentoFormInner() {
                 {formatarStatus(agendamentoAtual.status)}
               </span>
             </div>
+            {mensagemErroStatus && (
+              <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{mensagemErroStatus}</p>
+            )}
             {(agendamentoAtual.status === "AGENDADO" || agendamentoAtual.status === "CONFIRMADO") && (
               <>
                 {agendamentoAtual.status === "AGENDADO" && (
                   <button
                     onClick={handleMarcarConfirmado}
-                    className="flex items-center justify-center gap-1.5 rounded-xl bg-info px-4 py-3 font-medium text-info-foreground transition-opacity hover:opacity-90"
+                    disabled={alterandoStatus}
+                    className="flex items-center justify-center gap-1.5 rounded-xl bg-info px-4 py-3 font-medium text-info-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
                   >
                     <Check size={16} /> Confirmar Agendamento
                   </button>
@@ -916,21 +970,24 @@ function AgendamentoFormInner() {
                     setMensagemErroConcluir(null);
                     setMostrarPagamento(true);
                   }}
-                  className="flex items-center justify-center gap-1.5 rounded-xl bg-finalizado px-4 py-3 font-medium text-finalizado-foreground transition-opacity hover:opacity-90"
+                  disabled={alterandoStatus}
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-finalizado px-4 py-3 font-medium text-finalizado-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
                 >
                   <Check size={16} /> Marcar como Concluído
                 </button>
                 <button
                   onClick={handleMarcarFalta}
-                  className="rounded-xl border border-border-subtle px-4 py-3 text-sm text-warning transition-colors hover:bg-surface"
+                  disabled={alterandoStatus}
+                  className="rounded-xl border border-border-subtle px-4 py-3 text-sm text-warning transition-colors hover:bg-surface disabled:opacity-60"
                 >
-                  Marcar como Falta
+                  {alterandoStatus ? "Processando..." : "Marcar como Falta"}
                 </button>
                 <button
                   onClick={handleMarcarCancelado}
-                  className="rounded-xl border border-border-subtle px-4 py-3 text-sm text-danger transition-colors hover:bg-surface"
+                  disabled={alterandoStatus}
+                  className="rounded-xl border border-border-subtle px-4 py-3 text-sm text-danger transition-colors hover:bg-surface disabled:opacity-60"
                 >
-                  Cancelar Agendamento
+                  {alterandoStatus ? "Processando..." : "Cancelar Agendamento"}
                 </button>
               </>
             )}
@@ -939,9 +996,10 @@ function AgendamentoFormInner() {
               agendamentoAtual.status === "CANCELADO") && (
               <button
                 onClick={handleReabrir}
-                className="flex items-center justify-center gap-1.5 rounded-xl border border-border-subtle px-4 py-3 text-sm transition-colors hover:bg-surface"
+                disabled={alterandoStatus}
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-border-subtle px-4 py-3 text-sm transition-colors hover:bg-surface disabled:opacity-60"
               >
-                <RotateCcw size={15} /> Reabrir Agendamento
+                <RotateCcw size={15} /> {alterandoStatus ? "Processando..." : "Reabrir Agendamento"}
               </button>
             )}
             {clienteSelecionado && (
@@ -954,7 +1012,8 @@ function AgendamentoFormInner() {
             )}
             <button
               onClick={() => setMostrarExclusao(true)}
-              className="flex items-center justify-center gap-1.5 rounded-xl px-4 py-3 text-sm text-danger transition-colors hover:bg-danger/10"
+              disabled={alterandoStatus}
+              className="flex items-center justify-center gap-1.5 rounded-xl px-4 py-3 text-sm text-danger transition-colors hover:bg-danger/10 disabled:opacity-60"
             >
               <Trash2 size={15} /> Excluir agendamento
             </button>
@@ -1155,15 +1214,17 @@ function AgendamentoFormInner() {
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setMostrarExclusao(false)}
-                className="rounded-lg px-4 py-2 text-sm text-muted transition-colors hover:bg-surface-alt"
+                disabled={alterandoStatus}
+                className="rounded-lg px-4 py-2 text-sm text-muted transition-colors hover:bg-surface-alt disabled:opacity-60"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleExcluir}
-                className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+                disabled={alterandoStatus}
+                className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
               >
-                Excluir
+                {alterandoStatus ? "Excluindo..." : "Excluir"}
               </button>
             </div>
           </div>

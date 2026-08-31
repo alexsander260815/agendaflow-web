@@ -43,3 +43,13 @@ export async function concluirVendaProdutos(agendamentoId: string, formaPagament
   });
   if (error) throw error;
 }
+
+// Contraparte de concluirVendaProdutos — devolve estoque de produtos vendidos
+// e sessões de pacote descontadas quando uma comanda CONCLUIDO é cancelada,
+// marcada como falta, ou reaberta.
+export async function estornarComanda(agendamentoId: string): Promise<void> {
+  const { error } = await supabase.rpc("estornar_comanda", {
+    p_agendamento_id: agendamentoId,
+  });
+  if (error) throw error;
+}
