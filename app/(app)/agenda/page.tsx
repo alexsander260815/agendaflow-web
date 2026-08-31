@@ -11,11 +11,12 @@ import {
   listarBloqueiosAgenda,
   listarClientes,
   listarEquipe,
+  listarHorarios,
   listarServicos,
 } from "@/lib/repositories";
 import { profissionaisVisiveisAgenda } from "@/lib/permissoes";
 import Avatar from "@/components/Avatar";
-import { Agendamento, AgendamentoServico, BloqueioAgenda, Perfil } from "@/lib/types";
+import { Agendamento, AgendamentoServico, BloqueioAgenda, HorarioFuncionamento, Perfil } from "@/lib/types";
 import { converterIsoParaMillis, inicioDoDia } from "@/lib/datetime";
 import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
@@ -114,6 +115,7 @@ function AgendaPageInner() {
   const [cacheClientes, setCacheClientes] = useState<Map<string, string>>(new Map());
   const [cacheDuracoes, setCacheDuracoes] = useState<Map<string, number>>(new Map());
   const [cacheBloqueios, setCacheBloqueios] = useState<BloqueioAgenda[]>([]);
+  const [horariosProfissionais, setHorariosProfissionais] = useState<HorarioFuncionamento[]>([]);
   const [mostrarNovoBloqueio, setMostrarNovoBloqueio] = useState(false);
   const [horaInicioBloqueio, setHoraInicioBloqueio] = useState("00:00");
   const [horaFimBloqueio, setHoraFimBloqueio] = useState("23:59");
@@ -124,7 +126,7 @@ function AgendaPageInner() {
     if (!perfil) return;
     setCarregando(true);
     try {
-      const [equipeQueAtende, idsPermitidos, servicos, clientes, agendamentos, itens, bloqueios] = await Promise.all([
+      const [equipeQueAtende, idsPermitidos, servicos, clientes, agendamentos, itens, bloqueios, horarios] = await Promise.all([
         listarEquipe(perfil.salao_id).then((lista) => lista.filter((p) => p.atende_clientes)),
         profissionaisVisiveisAgenda(perfil),
         listarServicos(perfil.salao_id),
@@ -132,6 +134,7 @@ function AgendaPageInner() {
         listarAgendamentos(perfil.salao_id),
         listarAgendamentoServicos(perfil.salao_id),
         listarBloqueiosAgenda(perfil.salao_id),
+        listarHorarios(perfil.salao_id),
       ]);
 
       const equipeFiltradaBase = idsPermitidos === null ? equipeQueAtende : equipeQueAtende.filter((p) => idsPermitidos.includes(p.id));
@@ -158,6 +161,7 @@ function AgendaPageInner() {
       });
       setCacheItens(porAgendamento);
       setCacheBloqueios(bloqueios);
+      setHorariosProfissionais(horarios.filter((h) => h.profissional_id !== null));
     } finally {
       setCarregando(false);
     }
@@ -221,6 +225,40 @@ function AgendaPageInner() {
       })
       .filter((b): b is BlocoBloqueio => b !== null);
   }, [cacheBloqueios, profissionalSelecionadoId, dataSelecionada]);
+
+  // Faixas fora do horário de trabalho configurado do profissional selecionado
+  // — só visual (não bloqueia criar agendamento fora dela). Sem nenhum
+  // horário configurado pra essa pessoa, não mostra nada (comportamento
+  // igual ao de hoje).
+  const faixasForaDoExpediente = useMemo(() => {
+    const doProfissional = horariosProfissionais.filter((h) => h.profissional_id === profissionalSelecionadoId);
+    if (doProfissional.length === 0) return [];
+
+    const diaSemana = new Date(dataSelecionada).getDay();
+    const inicioGrade = HORA_INICIO * 60;
+    const fimGrade = HORA_FIM * 60;
+    const janelasDoDia = doProfissional
+      .filter((h) => h.dias.includes(diaSemana))
+      .map((h) => {
+        const [hA, mA] = h.abertura.split(":").map(Number);
+        const [hF, mF] = h.fechamento.split(":").map(Number);
+        return { inicio: hA * 60 + mA, fim: hF * 60 + mF };
+      })
+      .sort((a, b) => a.inicio - b.inicio);
+
+    if (janelasDoDia.length === 0) {
+      return [{ inicio: inicioGrade, fim: fimGrade }];
+    }
+
+    const gaps: { inicio: number; fim: number }[] = [];
+    let cursor = inicioGrade;
+    for (const janela of janelasDoDia) {
+      if (janela.inicio > cursor) gaps.push({ inicio: cursor, fim: Math.min(janela.inicio, fimGrade) });
+      cursor = Math.max(cursor, janela.fim);
+    }
+    if (cursor < fimGrade) gaps.push({ inicio: cursor, fim: fimGrade });
+    return gaps.filter((g) => g.fim > g.inicio);
+  }, [horariosProfissionais, profissionalSelecionadoId, dataSelecionada]);
 
   function irParaDiaAnterior() {
     setDataSelecionada((d) => d - 24 * 60 * 60 * 1000);
@@ -363,6 +401,18 @@ function handleEscolherData(valor: string) {
               <span className="w-16 translate-y-1 bg-surface pl-3 font-medium tabular-nums">{String(h).padStart(2, "0")}:00</span>
             </button>
           ))}
+
+          {faixasForaDoExpediente.map((f, i) => {
+            const top = ((f.inicio - HORA_INICIO * 60) / 60) * PX_POR_HORA;
+            const altura = ((f.fim - f.inicio) / 60) * PX_POR_HORA;
+            return (
+              <div
+                key={`fora-${i}`}
+                className="pointer-events-none absolute left-16 right-0 bg-surface-alt/60"
+                style={{ top, height: altura }}
+              />
+            );
+          })}
 
           {bloqueiosDoDia.map((b) => {
             const top = ((b.inicioMinutosDoDia - HORA_INICIO * 60) / 60) * PX_POR_HORA;

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { CalendarDays, Percent, Trash2, Wallet } from "lucide-react";
+import { CalendarDays, Clock, Percent, Trash2, Wallet } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
   buscarPermissoesDe,
@@ -11,17 +11,21 @@ import {
   definirConcessaoVisualizacao,
   definirPapelId,
   definirPermissaoVisualizacao,
+  deletarHorario,
   listarEquipe,
+  listarHorarios,
   listarPapeisAtribuiveis,
   listarPermissoesVisualizacaoDe,
   removerDaEquipe,
   salvarEscopoVisualizacao,
+  salvarHorario,
   salvarPermissoesUsuario,
 } from "@/lib/repositories";
 import Avatar from "@/components/Avatar";
 import AcessoRestrito from "@/components/AcessoRestrito";
+import HorariosFuncionamento from "@/components/HorariosFuncionamento";
 import { registrarAuditoria } from "@/lib/auditoria";
-import { Papel, PermissaoVisualizacao, Perfil } from "@/lib/types";
+import { Papel, PermissaoVisualizacao, Perfil, HorarioFuncionamento } from "@/lib/types";
 
 type ModoAgenda = "PROPRIA" | "SELECIONADOS" | "EQUIPE";
 type ModoFinanceiro = "PROPRIO" | "SELECIONADOS" | "EQUIPE";
@@ -44,6 +48,7 @@ export default function GerenciarPermissoesPage() {
   const [permissoesIndividuais, setPermissoesIndividuais] = useState<PermissaoVisualizacao[]>([]);
   const [atendeClientes, setAtendeClientes] = useState(false);
   const [comissao, setComissao] = useState("");
+  const [horarios, setHorarios] = useState<HorarioFuncionamento[]>([]);
 
   const [mostrarExclusao, setMostrarExclusao] = useState(false);
 
@@ -57,11 +62,12 @@ export default function GerenciarPermissoesPage() {
     if (!perfil) return;
     setCarregando(true);
     try {
-      const [equipe, permissoes, individuais, papeisAtribuiveis] = await Promise.all([
+      const [equipe, permissoes, individuais, papeisAtribuiveis, todosHorarios] = await Promise.all([
         listarEquipe(perfil.salao_id),
         buscarPermissoesDe(pessoaId),
         listarPermissoesVisualizacaoDe(pessoaId),
         listarPapeisAtribuiveis().catch(() => []),
+        listarHorarios(perfil.salao_id),
       ]);
       const p = equipe.find((e) => e.id === pessoaId) ?? null;
       setPessoa(p);
@@ -69,6 +75,7 @@ export default function GerenciarPermissoesPage() {
       setOutrasPessoas(equipe.filter((e) => e.id !== pessoaId));
       setAtendeClientes(p?.atende_clientes ?? false);
       setComissao(String(p?.comissao_percentual ?? 50));
+      setHorarios(todosHorarios.filter((h) => h.profissional_id === pessoaId));
 
       setAgendaModo((permissoes?.agenda_modo as ModoAgenda) ?? "PROPRIA");
       setAgendaVeDono(permissoes?.agenda_ve_dono ?? false);
@@ -187,6 +194,25 @@ export default function GerenciarPermissoesPage() {
   async function handleAlternarAtendeClientes(valor: boolean) {
     setAtendeClientes(valor);
     await definirAtendeClientes(pessoaId, valor);
+  }
+
+  async function handleAdicionarHorario(dias: number[], abertura: string, fechamento: string) {
+    if (!perfil) return;
+    await salvarHorario({
+      id: crypto.randomUUID(),
+      salao_id: perfil.salao_id,
+      profissional_id: pessoaId,
+      dias,
+      abertura,
+      fechamento,
+    });
+    setHorarios((await listarHorarios(perfil.salao_id)).filter((h) => h.profissional_id === pessoaId));
+  }
+
+  async function handleRemoverHorario(id: string) {
+    if (!perfil) return;
+    await deletarHorario(id);
+    setHorarios((await listarHorarios(perfil.salao_id)).filter((h) => h.profissional_id === pessoaId));
   }
 
   async function handleRemover() {
@@ -351,6 +377,24 @@ export default function GerenciarPermissoesPage() {
             <p className="mt-0.5 text-xs text-muted">Aparece na Agenda e conta no limite do plano.</p>
           </div>
           <Toggle valor={atendeClientes} onMudar={handleAlternarAtendeClientes} />
+        </div>
+
+        {/* Horário de trabalho */}
+        <div className="card-elevated rounded-2xl bg-surface p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Clock size={16} className="text-accent" />
+            <p className="font-medium">Horário de trabalho</p>
+          </div>
+          <p className="mb-3 text-xs text-muted">
+            Só pra visualização na Agenda — não bloqueia agendar fora desse horário. Sem nenhum aqui, vale o horário
+            do salão.
+          </p>
+          <HorariosFuncionamento
+            horarios={horarios}
+            onAdicionar={handleAdicionarHorario}
+            onRemover={handleRemoverHorario}
+            textoVazio="Nenhum horário específico — usa o do salão."
+          />
         </div>
 
         {/* Comissão */}

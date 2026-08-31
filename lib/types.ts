@@ -333,6 +333,9 @@ export interface Salao {
 export interface HorarioFuncionamento {
   id: string;
   salao_id: string;
+  // null = horário do salão inteiro (comportamento original); preenchido =
+  // horário específico desse profissional, some da lista do salão.
+  profissional_id: string | null;
   dias: number[]; // 0=Dom .. 6=Sáb
   abertura: string; // "HH:mm"
   fechamento: string; // "HH:mm"
