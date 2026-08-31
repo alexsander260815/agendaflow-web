@@ -5,7 +5,7 @@ import { Target, TrendingUp, Users } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { formatarMoeda } from '@/lib/datetime';
 import { profissionaisVisiveisFinanceiro } from '@/lib/permissoes';
-import { atualizarMetaFaturamentoPerfil, atualizarSalao, buscarMeuSalao, listarAgendamentos, listarAgendamentoServicos, listarEquipe } from '@/lib/repositories';
+import { atualizarMetaFaturamentoPerfil, atualizarSalao, buscarMeuSalao, listarAgendamentos, listarAgendamentoServicos, listarEquipe, listarReceitasAvulsas } from '@/lib/repositories';
 import { Perfil, Salao } from '@/lib/types';
 
 interface LinhaProfissional { perfil: Perfil; receita: number; atendimentos: number }
@@ -52,15 +52,22 @@ function VisaoSalao() {
         listarEquipe(perfil.salao_id),
         profissionaisVisiveisFinanceiro(perfil),
       ]);
+      const receitasAvulsas = visiveis === null ? await listarReceitasAvulsas(perfil.salao_id) : [];
       const inicioMes = inicioDoMes();
       const concluidos = agendamentos.filter((ag) =>
         ag.status === 'CONCLUIDO' &&
         new Date(ag.data_hora).getTime() >= inicioMes &&
         (visiveis === null || (ag.profissional_id && visiveis.includes(ag.profissional_id)))
       );
+      // Itens cobertos por pacote já entraram como receita na venda, e essa
+      // venda entra à parte (receitas_avulsas) — sem isso a mesma sessão
+      // contava como faturamento duas vezes.
       const precos = new Map<string, number>();
-      itens.forEach((item) => precos.set(item.agendamento_id, (precos.get(item.agendamento_id) ?? 0) + item.preco));
-      const total = concluidos.reduce((soma, ag) => soma + (precos.get(ag.id) ?? 0), 0);
+      itens.filter((item) => !item.cliente_pacote_id).forEach((item) => precos.set(item.agendamento_id, (precos.get(item.agendamento_id) ?? 0) + item.preco));
+      const receitaPacotesMes = receitasAvulsas
+        .filter((r) => new Date(r.data_receita).getTime() >= inicioMes)
+        .reduce((soma, r) => soma + r.valor, 0);
+      const total = concluidos.reduce((soma, ag) => soma + (precos.get(ag.id) ?? 0), 0) + receitaPacotesMes;
       const porProfissional = equipe.map((pessoa) => {
         const lista = concluidos.filter((ag) => ag.profissional_id === pessoa.id);
         return { perfil: pessoa, atendimentos: lista.length, receita: lista.reduce((soma, ag) => soma + (precos.get(ag.id) ?? 0), 0) };
@@ -150,7 +157,7 @@ function VisaoPessoal({ perfil }: { perfil: Perfil }) {
         new Date(ag.data_hora).getTime() >= inicioMes
       );
       const precos = new Map<string, number>();
-      itens.forEach((item) => precos.set(item.agendamento_id, (precos.get(item.agendamento_id) ?? 0) + item.preco));
+      itens.filter((item) => !item.cliente_pacote_id).forEach((item) => precos.set(item.agendamento_id, (precos.get(item.agendamento_id) ?? 0) + item.preco));
       const total = meus.reduce((soma, ag) => soma + (precos.get(ag.id) ?? 0), 0);
       setReceita(total);
       setAtendimentos(meus.length);

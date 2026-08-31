@@ -19,9 +19,10 @@ import { listarAgendamentos } from "@/lib/repositories/agendamentoRepository";
 import { listarAgendamentoServicos } from "@/lib/repositories/agendamentoServicoRepository";
 import { listarClientes } from "@/lib/repositories/clienteRepository";
 import { listarEquipe } from "@/lib/repositories/perfilRepository";
+import { listarReceitasAvulsas } from "@/lib/repositories/receitaAvulsaRepository";
 import { profissionaisVisiveisAgenda, profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
 import Avatar from "@/components/Avatar";
-import { Agendamento, AgendamentoServico } from "@/lib/types";
+import { Agendamento, AgendamentoServico, ReceitaAvulsa } from "@/lib/types";
 import {
   converterIsoParaMillis,
   fimDoDia,
@@ -83,6 +84,14 @@ export default function DashboardPage() {
         profissionaisVisiveisFinanceiro(perfil),
         profissionaisVisiveisAgenda(perfil),
       ]);
+      // Receita de pacote é caixa entrando na venda, não no uso — sem isso o
+      // faturamento contava a mesma sessão duas vezes. Só quem enxerga o
+      // financeiro completo vê (mesma regra das despesas em Financeiro).
+      const receitasAvulsas: ReceitaAvulsa[] = permitidos === null ? await listarReceitasAvulsas(perfil.salao_id) : [];
+      const somaReceitasAvulsas = (inicio: number, fim: number) =>
+        receitasAvulsas
+          .filter((r) => converterIsoParaMillis(r.data_receita) >= inicio && converterIsoParaMillis(r.data_receita) <= fim)
+          .reduce((soma, r) => soma + r.valor, 0);
 
       const clientesMap = new Map(clientes.map((c) => [c.id, c.nome]));
       const equipeMap = new Map(equipe.map((p) => [p.id, p]));
@@ -109,8 +118,12 @@ export default function DashboardPage() {
         (a) => a.status === "CONCLUIDO" && permitidoFinanceiro(a.profissional_id)
       );
 
+      // Itens cobertos por pacote já entraram como receita na venda — contar
+      // de novo aqui infla o faturamento com sessões que ninguém pagou agora.
       const totalItens = (ag: Agendamento) =>
-        (itensPorAgendamento.get(ag.id) ?? []).reduce((soma, i) => soma + i.preco, 0);
+        (itensPorAgendamento.get(ag.id) ?? [])
+          .filter((i) => !i.cliente_pacote_id)
+          .reduce((soma, i) => soma + i.preco, 0);
 
       const concluidosHoje = concluidos.filter(
         (a) => converterIsoParaMillis(a.data_hora) >= hojeInicio && converterIsoParaMillis(a.data_hora) <= hojeFim
@@ -119,8 +132,8 @@ export default function DashboardPage() {
         (a) => converterIsoParaMillis(a.data_hora) >= mesInicio && converterIsoParaMillis(a.data_hora) <= mesFim
       );
 
-      const fatHoje = concluidosHoje.reduce((soma, a) => soma + totalItens(a), 0);
-      const fatMes = concluidosMes.reduce((soma, a) => soma + totalItens(a), 0);
+      const fatHoje = concluidosHoje.reduce((soma, a) => soma + totalItens(a), 0) + somaReceitasAvulsas(hojeInicio, hojeFim);
+      const fatMes = concluidosMes.reduce((soma, a) => soma + totalItens(a), 0) + somaReceitasAvulsas(mesInicio, mesFim);
 
       setFaturamentoHoje(fatHoje);
       setFaturamentoMes(fatMes);
@@ -170,7 +183,7 @@ export default function DashboardPage() {
       const agendamentosConcluidosMes = new Set(concluidosMes.map((a) => a.id));
       const porServico = new Map<string, TopServico>();
       todosItens
-        .filter((item) => agendamentosConcluidosMes.has(item.agendamento_id))
+        .filter((item) => agendamentosConcluidosMes.has(item.agendamento_id) && !item.cliente_pacote_id)
         .forEach((item) => {
           const atual = porServico.get(item.nome_servico) ?? {
             nome: item.nome_servico,
@@ -195,7 +208,7 @@ export default function DashboardPage() {
         const doDia = concluidos.filter(
           (a) => converterIsoParaMillis(a.data_hora) >= ini && converterIsoParaMillis(a.data_hora) <= fim
         );
-        const total = doDia.reduce((soma, a) => soma + totalItens(a), 0);
+        const total = doDia.reduce((soma, a) => soma + totalItens(a), 0) + somaReceitasAvulsas(ini, fim);
         pontos.push({ label: labelDiaCurto(ini), valor: total, ehHoje: i === 0 });
       }
       setReceita7Dias(pontos);
