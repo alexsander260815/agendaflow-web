@@ -189,6 +189,8 @@ export interface ItemComanda {
   usaPacote: boolean;
   clientePacoteId: string | null;
   precoCobrado: number;
+  pacoteDescontado: boolean;
+  comissaoFechada: boolean;
 }
 
 export type TipoMovimentacao = "ENTRADA" | "VENDA" | "CONSUMO" | "AJUSTE";

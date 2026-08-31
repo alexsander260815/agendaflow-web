@@ -24,3 +24,17 @@ export async function atualizarLogoUrl(salaoId: string, url: string): Promise<vo
     throw new Error("O logo não foi salvo (0 linhas afetadas) — provavelmente uma política de acesso do banco está bloqueando.");
   }
 }
+
+export async function atualizarModoComissaoPacote(salaoId: string, modo: string): Promise<void> {
+  const { data, error } = await supabase
+    .from("saloes")
+    .update({ modo_comissao_pacote: modo })
+    .eq("id", salaoId)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error(
+      "A configuração não foi salva (0 linhas afetadas) — provavelmente uma política de acesso do banco está bloqueando."
+    );
+  }
+}

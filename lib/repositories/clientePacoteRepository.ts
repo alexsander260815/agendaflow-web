@@ -31,3 +31,9 @@ export async function atualizarQuantidadeClientePacote(id: string, novaQuantidad
     .eq("id", id);
   if (error) throw error;
 }
+
+// Remove um pacote cadastrado errado no cliente.
+export async function deletarClientePacote(id: string): Promise<void> {
+  const { error } = await supabase.from("cliente_pacotes").delete().eq("id", id);
+  if (error) throw error;
+}

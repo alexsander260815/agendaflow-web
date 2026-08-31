@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Clock, Package, Plus, Scissors, X } from "lucide-react";
+import { Clock, Package, Plus, Scissors, Settings, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { listarServicos } from "@/lib/repositories/servicoRepository";
 import { deletarPacote, listarPacotes, salvarPacote } from "@/lib/repositories/pacoteRepository";
+import { atualizarModoComissaoPacote, buscarMeuSalao } from "@/lib/repositories/salaoRepository";
 import { Pacote, Servico } from "@/lib/types";
 import { formatarMoeda } from "@/lib/datetime";
 import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
@@ -24,21 +25,29 @@ function formatarDuracao(minutos: number): string {
 
 export default function ServicosPage() {
   const { perfil } = useAuth();
-  const [aba, setAba] = useState<"servicos" | "pacotes">("servicos");
+  const [aba, setAba] = useState<"servicos" | "pacotes" | "configuracoes">("servicos");
   const [servicos, setServicos] = useState<Servico[]>([]);
   const [pacotes, setPacotes] = useState<Pacote[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [mostrarNovoPacote, setMostrarNovoPacote] = useState(false);
+  const [modoComissaoPacote, setModoComissaoPacote] = useState("FECHAMENTO");
 
   useEffect(() => {
     if (!perfil) return;
-    Promise.all([listarServicos(perfil.salao_id), listarPacotes(perfil.salao_id)])
-      .then(([s, p]) => {
+    Promise.all([listarServicos(perfil.salao_id), listarPacotes(perfil.salao_id), buscarMeuSalao(perfil.salao_id)])
+      .then(([s, p, salao]) => {
         setServicos(s);
         setPacotes(p);
+        setModoComissaoPacote(salao?.modo_comissao_pacote ?? "FECHAMENTO");
       })
       .finally(() => setCarregando(false));
   }, [perfil?.id]);
+
+  async function handleSelecionarModoComissao(modo: string) {
+    if (!perfil) return;
+    setModoComissaoPacote(modo);
+    await atualizarModoComissaoPacote(perfil.salao_id, modo);
+  }
 
   async function handleDeletarPacote(id: string) {
     await deletarPacote(id);
@@ -60,7 +69,7 @@ export default function ServicosPage() {
             <Plus size={16} strokeWidth={2.5} />
             Novo
           </Link>
-        ) : (
+        ) : aba === "pacotes" ? (
           <button
             onClick={() => setMostrarNovoPacote(true)}
             className="flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"
@@ -68,11 +77,11 @@ export default function ServicosPage() {
             <Plus size={16} strokeWidth={2.5} />
             Novo
           </button>
-        )}
+        ) : null}
       </div>
 
       <div className="mb-5 flex gap-1 rounded-xl bg-surface p-1">
-        {(["servicos", "pacotes"] as const).map((tab) => (
+        {(["servicos", "pacotes", "configuracoes"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setAba(tab)}
@@ -80,7 +89,7 @@ export default function ServicosPage() {
               aba === tab ? "bg-accent text-accent-foreground" : "text-muted"
             }`}
           >
-            {tab === "servicos" ? "Serviços" : "Pacotes"}
+            {tab === "servicos" ? "Serviços" : tab === "pacotes" ? "Pacotes" : "Configurações"}
           </button>
         ))}
       </div>
@@ -129,37 +138,98 @@ export default function ServicosPage() {
             ))}
           </div>
         )
-      ) : pacotes.length === 0 ? (
-        <div className="card-elevated flex flex-col items-center gap-2 rounded-2xl bg-surface p-10 text-center">
-          <Package size={28} className="text-muted" />
-          <p className="text-sm text-muted">Nenhum pacote cadastrado ainda.</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {pacotes.map((p) => {
-            const servico = servicos.find((s) => s.id === p.servico_id);
-            return (
-              <div key={p.id} className="card-elevated flex items-center justify-between rounded-xl bg-surface p-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12">
-                    <Package size={16} className="text-accent" />
+      ) : aba === "pacotes" ? (
+        pacotes.length === 0 ? (
+          <div className="card-elevated flex flex-col items-center gap-2 rounded-2xl bg-surface p-10 text-center">
+            <Package size={28} className="text-muted" />
+            <p className="text-sm text-muted">Nenhum pacote cadastrado ainda.</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {pacotes.map((p) => {
+              const servico = servicos.find((s) => s.id === p.servico_id);
+              return (
+                <div key={p.id} className="card-elevated flex items-center justify-between rounded-xl bg-surface p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/12">
+                      <Package size={16} className="text-accent" />
+                    </div>
+                    <div>
+                      <p className="font-medium">{p.nome}</p>
+                      <p className="text-sm text-muted">
+                        {servico?.nome ?? "Serviço"} · {p.quantidade_sessoes}x · {formatarMoeda(p.preco)}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">{p.nome}</p>
-                    <p className="text-sm text-muted">
-                      {servico?.nome ?? "Serviço"} · {p.quantidade_sessoes}x · {formatarMoeda(p.preco)}
-                    </p>
-                  </div>
+                  <button
+                    onClick={() => handleDeletarPacote(p.id)}
+                    className="rounded-lg p-2 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+                  >
+                    <X size={16} />
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleDeletarPacote(p.id)}
-                  className="rounded-lg p-2 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+        )
+      ) : (
+        <div className="flex flex-col gap-5">
+          <div className="card-elevated flex items-start gap-3.5 rounded-2xl border border-accent/30 bg-surface p-4.5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+              <Settings size={22} />
+            </div>
+            <div>
+              <p className="font-medium">Configurações de pacotes e assinaturas</p>
+              <p className="mt-1 text-sm text-muted">
+                Regra geral do salão para pacotes e assinaturas de clientes: comissão na venda ou por uso.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-3 font-medium">Comissões</p>
+            <div className="flex flex-col gap-3">
+              {(
+                [
+                  {
+                    valor: "FECHAMENTO",
+                    titulo: "Comissão de fechamento (pacote ou assinatura)",
+                    descricao:
+                      "Quando um profissional fecha um pacote ou assinatura, a comissão é calculada integralmente baseada no valor da venda.",
+                  },
+                  {
+                    valor: "USO",
+                    titulo: "Comissão por uso (pacote ou assinatura)",
+                    descricao:
+                      "A comissão é calculada baseada em uma fração do montante total, sendo considerada somente após a realização do serviço. Exemplo: 4 cortes por mês a R$100, 50% de comissão para o profissional, onde o profissional receberá 50/4 = R$12,50 cada vez que prestar serviço incluso no pacote ou assinatura.",
+                  },
+                ] as const
+              ).map((opcao) => {
+                const selecionado = modoComissaoPacote === opcao.valor;
+                return (
+                  <button
+                    key={opcao.valor}
+                    onClick={() => handleSelecionarModoComissao(opcao.valor)}
+                    className={`card-elevated flex items-start gap-3 rounded-2xl p-4 text-left transition-colors ${
+                      selecionado ? "border border-accent bg-accent/8" : "border border-border-subtle bg-surface hover:bg-surface-alt"
+                    }`}
+                  >
+                    <div
+                      className={`mt-0.5 flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border-2 ${
+                        selecionado ? "border-accent" : "border-border-subtle"
+                      }`}
+                    >
+                      {selecionado && <div className="h-2 w-2 rounded-full bg-accent" />}
+                    </div>
+                    <div>
+                      <p className="font-medium">{opcao.titulo}</p>
+                      <p className="mt-1.5 text-sm text-muted">{opcao.descricao}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 

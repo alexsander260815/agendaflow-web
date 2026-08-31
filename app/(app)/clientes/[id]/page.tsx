@@ -23,6 +23,7 @@ import {
 } from "@/lib/repositories/clienteRepository";
 import {
   comprarPacote,
+  deletarClientePacote,
   listarClientePacotesPorCliente,
 } from "@/lib/repositories/clientePacoteRepository";
 import { listarPacotes } from "@/lib/repositories/pacoteRepository";
@@ -61,6 +62,7 @@ export default function ClienteFormPage() {
   const [historico, setHistorico] = useState<AtendimentoHistorico[]>([]);
   const [carregandoHistorico, setCarregandoHistorico] = useState(false);
   const [mostrarConfirmacaoExclusao, setMostrarConfirmacaoExclusao] = useState(false);
+  const [pacoteParaExcluir, setPacoteParaExcluir] = useState<ClientePacote | null>(null);
 
   useEffect(() => {
     if (!perfil) return;
@@ -165,6 +167,13 @@ export default function ClienteFormPage() {
     listarClientePacotesPorCliente(clienteId).then(setPacotesDoCliente);
   }
 
+  async function handleExcluirPacote() {
+    if (!clienteId || !pacoteParaExcluir) return;
+    await deletarClientePacote(pacoteParaExcluir.id);
+    setPacoteParaExcluir(null);
+    listarClientePacotesPorCliente(clienteId).then(setPacotesDoCliente);
+  }
+
   return (
     <div className="mx-auto max-w-2xl p-5 pb-16 md:p-8">
       <div className="mb-6 flex items-center justify-between">
@@ -251,11 +260,20 @@ export default function ClienteFormPage() {
             ) : (
               <div className="flex flex-col gap-2">
                 {pacotesDoCliente.map((p) => (
-                  <div key={p.id} className="card-elevated flex items-center justify-between rounded-xl bg-surface p-3.5">
+                  <div key={p.id} className="card-elevated flex items-center justify-between gap-2 rounded-xl bg-surface p-3.5">
                     <span className="text-sm font-medium">{p.nome_pacote}</span>
-                    <span className="rounded-full bg-accent/12 px-2.5 py-1 text-xs font-medium text-accent">
-                      {p.quantidade_restante} restante(s)
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-accent/12 px-2.5 py-1 text-xs font-medium text-accent">
+                        {p.quantidade_restante} restante(s)
+                      </span>
+                      <button
+                        onClick={() => setPacoteParaExcluir(p)}
+                        aria-label={`Excluir pacote ${p.nome_pacote}`}
+                        className="rounded-lg p-1.5 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -343,6 +361,31 @@ export default function ClienteFormPage() {
               </button>
               <button
                 onClick={handleExcluir}
+                className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pacoteParaExcluir && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-5 backdrop-blur-sm">
+          <div className="card-elevated w-full max-w-sm rounded-2xl bg-surface p-5">
+            <p className="mb-2 font-medium">Excluir pacote?</p>
+            <p className="mb-4 text-sm text-muted">
+              Isso remove &quot;{pacoteParaExcluir.nome_pacote}&quot; do cliente. Use se ele foi cadastrado por engano.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setPacoteParaExcluir(null)}
+                className="rounded-lg px-4 py-2 text-sm text-muted transition-colors hover:bg-surface-alt"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleExcluirPacote}
                 className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
               >
                 Excluir

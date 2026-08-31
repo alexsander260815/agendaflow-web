@@ -267,6 +267,8 @@ function AgendamentoFormInner() {
           usaPacote: item.cliente_pacote_id !== null,
           clientePacoteId: item.cliente_pacote_id,
           precoCobrado: item.preco,
+          pacoteDescontado: item.pacote_descontado,
+          comissaoFechada: item.comissao_fechada,
         }))
       );
     }
@@ -308,8 +310,8 @@ function AgendamentoFormInner() {
     setItensComanda((atual) => [
       ...atual,
       pacote
-        ? { servico, usaPacote: true, clientePacoteId: pacote.id, precoCobrado: servico.preco }
-        : { servico, usaPacote: false, clientePacoteId: null, precoCobrado: servico.preco },
+        ? { servico, usaPacote: true, clientePacoteId: pacote.id, precoCobrado: servico.preco, pacoteDescontado: false, comissaoFechada: false }
+        : { servico, usaPacote: false, clientePacoteId: null, precoCobrado: servico.preco, pacoteDescontado: false, comissaoFechada: false },
     ]);
     setMostrarSeletorServico(false);
     setTermoBuscaServico("");
@@ -518,8 +520,8 @@ function AgendamentoFormInner() {
         nome_servico: item.servico.nome,
         preco: item.precoCobrado,
         cliente_pacote_id: item.clientePacoteId,
-        pacote_descontado: false,
-        comissao_fechada: false,
+        pacote_descontado: item.pacoteDescontado,
+        comissao_fechada: item.comissaoFechada,
       }));
       await salvarItensComanda(id, itensParaSalvar);
       await salvarProdutosDaComanda(
@@ -656,9 +658,18 @@ function AgendamentoFormInner() {
     setAlterandoStatus(true);
     setMensagemErroStatus(null);
     try {
+      const tinhaConcluido = agendamentoAtual.status === "CONCLUIDO";
       await estornarSeConcluida();
       await atualizarAgendamento(agendamentoId, { ...agendamentoAtual, status: "AGENDADO" });
       setAgendamentoAtual({ ...agendamentoAtual, status: "AGENDADO" });
+      // O estorno já resetou pacote_descontado no banco — sem recarregar, o
+      // item em memória ficaria com o valor antigo (true) e sobrescreveria o
+      // banco de volta pra true na próxima vez que a comanda for salva.
+      if (tinhaConcluido) {
+        setItensComanda((atual) =>
+          atual.map((item) => (item.pacoteDescontado ? { ...item, pacoteDescontado: false } : item))
+        );
+      }
     } catch (e) {
       setMensagemErroStatus(e instanceof Error ? e.message : "Não foi possível reabrir o agendamento.");
     } finally {
