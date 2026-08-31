@@ -26,6 +26,7 @@ import {
   deletarClientePacote,
   listarClientePacotesPorCliente,
 } from "@/lib/repositories/clientePacoteRepository";
+import { salvarReceitaAvulsa } from "@/lib/repositories/receitaAvulsaRepository";
 import { listarPacotes } from "@/lib/repositories/pacoteRepository";
 import { listarAgendamentos } from "@/lib/repositories/agendamentoRepository";
 import { listarAgendamentoServicos } from "@/lib/repositories/agendamentoServicoRepository";
@@ -154,8 +155,9 @@ export default function ClienteFormPage() {
 
   async function handleComprarPacote(pacote: Pacote) {
     if (!perfil || !clienteId) return;
+    const clientePacoteId = crypto.randomUUID();
     await comprarPacote({
-      id: crypto.randomUUID(),
+      id: clientePacoteId,
       salao_id: perfil.salao_id,
       cliente_id: clienteId,
       pacote_id: pacote.id,
@@ -163,6 +165,27 @@ export default function ClienteFormPage() {
       servico_id: pacote.servico_id,
       quantidade_restante: pacote.quantidade_sessoes,
     });
+    // Sem isso, comprar um pacote não gerava nenhuma entrada financeira — o
+    // dinheiro da venda simplesmente não aparecia no Financeiro. As sessões
+    // usadas depois já são excluídas da receita de atendimento (não contam
+    // de novo), então esse é o único lançamento dessa receita. Fica
+    // vinculada ao cliente_pacote_id — se o pacote for excluído por engano,
+    // essa receita some junto (cascade no banco, mesma regra do Android).
+    try {
+      await salvarReceitaAvulsa({
+        id: crypto.randomUUID(),
+        salao_id: perfil.salao_id,
+        cliente_id: clienteId,
+        cliente_pacote_id: clientePacoteId,
+        origem: "PACOTE",
+        descricao: `Venda do pacote ${pacote.nome}`,
+        valor: pacote.preco,
+        data_receita: new Date().toISOString(),
+      });
+    } catch {
+      // se o registro da receita falhar, o pacote já foi vendido — não desfaz
+      // a compra, mas o faturamento desse pacote fica faltando no relatório.
+    }
     setMostrarSeletorPacote(false);
     listarClientePacotesPorCliente(clienteId).then(setPacotesDoCliente);
   }

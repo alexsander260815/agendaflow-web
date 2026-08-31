@@ -26,3 +26,4 @@ export * from "./painelAdminRepository";
 export * from "./suporteRepository";
 export * from './despesaRepository';
 export * from './fichaTecnicaRepository';
+export * from './receitaAvulsaRepository';

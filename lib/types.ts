@@ -253,6 +253,21 @@ export interface Despesa {
   categoria: 'ALUGUEL' | 'PRODUTOS_INSUMOS' | 'CONTAS_FIXAS' | 'MARKETING' | 'MANUTENCAO' | 'OUTROS' | string;
 }
 
+// Receita registrada na hora da venda de um pacote/assinatura — não na hora
+// do uso das sessões (essas ficam de fora dos somatórios de receita de
+// atendimento, senão contaria o mesmo dinheiro duas vezes). Mesmo modelo do
+// Android (tabela receitas_avulsas, criada pelas migrations do app).
+export interface ReceitaAvulsa {
+  id: string;
+  salao_id: string;
+  cliente_id: string | null;
+  cliente_pacote_id: string | null;
+  origem: string;
+  descricao: string;
+  valor: number;
+  data_receita: string;
+}
+
 export interface FichaTecnica {
   id: string;
   salao_id: string;

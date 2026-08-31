@@ -118,7 +118,10 @@ export default function FinanceiroPage() {
         .map(([profissionalId, lista]) => {
           const prof = profissionalId === "sem_profissional" ? undefined : equipeMap.get(profissionalId);
           const nome = prof?.nome ?? "Não atribuído";
-          const itensDoProfissional = lista.flatMap((a) => itensPorAgendamento.get(a.id) ?? []);
+          // Itens cobertos por pacote já entraram como receita na venda do
+          // pacote — contar de novo aqui infla o faturamento do profissional
+          // com sessões que o cliente não pagou nessa hora.
+          const itensDoProfissional = lista.flatMap((a) => itensPorAgendamento.get(a.id) ?? []).filter((i) => !i.cliente_pacote_id);
           const totalProfissional = itensDoProfissional.reduce((soma, i) => soma + i.preco, 0);
 
           const porServicoMap = new Map<string, DetalheServico>();
@@ -132,7 +135,7 @@ export default function FinanceiroPage() {
           const porPagamentoMap = new Map<string, number>();
           lista.forEach((a) => {
             const forma = a.forma_pagamento ?? "NAO_INFORMADO";
-            const totalAg = (itensPorAgendamento.get(a.id) ?? []).reduce((soma, i) => soma + i.preco, 0);
+            const totalAg = (itensPorAgendamento.get(a.id) ?? []).filter((i) => !i.cliente_pacote_id).reduce((soma, i) => soma + i.preco, 0);
             porPagamentoMap.set(forma, (porPagamentoMap.get(forma) ?? 0) + totalAg);
           });
 

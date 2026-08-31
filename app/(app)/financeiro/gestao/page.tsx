@@ -6,8 +6,8 @@ import AcessoRestrito from '@/components/AcessoRestrito';
 import { useAuth } from '@/lib/auth-context';
 import { formatarMoeda } from '@/lib/datetime';
 import { profissionaisVisiveisFinanceiro } from '@/lib/permissoes';
-import { deletarDespesa, listarAgendamentos, listarAgendamentoServicos, listarClientes, listarDespesas, listarEquipe, marcarComissoesFechadas, salvarDespesa, salvarFechamentoComissao } from '@/lib/repositories';
-import { Agendamento, AgendamentoServico, Cliente, Despesa, Perfil } from '@/lib/types';
+import { deletarDespesa, listarAgendamentos, listarAgendamentoServicos, listarClientes, listarDespesas, listarEquipe, listarReceitasAvulsas, marcarComissoesFechadas, salvarDespesa, salvarFechamentoComissao } from '@/lib/repositories';
+import { Agendamento, AgendamentoServico, Cliente, Despesa, Perfil, ReceitaAvulsa } from '@/lib/types';
 
 type Aba = 'CAIXA' | 'SEMANA' | 'MES' | 'COMISSOES' | 'DRE';
 const CATEGORIAS = [{ id: 'ALUGUEL', nome: 'Aluguel' }, { id: 'PRODUTOS_INSUMOS', nome: 'Produtos / Insumos' }, { id: 'CONTAS_FIXAS', nome: 'Contas fixas' }, { id: 'MARKETING', nome: 'Marketing' }, { id: 'MANUTENCAO', nome: 'Manutenção' }, { id: 'OUTROS', nome: 'Outros' }];
@@ -25,6 +25,7 @@ export default function GestaoFinanceiraPage() {
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [itens, setItens] = useState<AgendamentoServico[]>([]);
   const [despesas, setDespesas] = useState<Despesa[]>([]);
+  const [receitasAvulsas, setReceitasAvulsas] = useState<ReceitaAvulsa[]>([]);
   const [equipe, setEquipe] = useState<Perfil[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [visiveis, setVisiveis] = useState<string[] | null>([]);
@@ -46,22 +47,28 @@ export default function GestaoFinanceiraPage() {
     if (!perfil) return;
     setCarregando(true);
     try {
-      const [ags, servicos, gastos, profissionais, listaClientes, permitidos] = await Promise.all([
+      const [ags, servicos, gastos, receitas, profissionais, listaClientes, permitidos] = await Promise.all([
         listarAgendamentos(perfil.salao_id), listarAgendamentoServicos(perfil.salao_id), listarDespesas(perfil.salao_id),
-        listarEquipe(perfil.salao_id), listarClientes(perfil.salao_id), profissionaisVisiveisFinanceiro(perfil),
+        listarReceitasAvulsas(perfil.salao_id), listarEquipe(perfil.salao_id), listarClientes(perfil.salao_id), profissionaisVisiveisFinanceiro(perfil),
       ]);
-      setAgendamentos(ags); setItens(servicos); setDespesas(gastos); setEquipe(profissionais); setClientes(listaClientes); setVisiveis(permitidos);
+      setAgendamentos(ags); setItens(servicos); setDespesas(gastos); setReceitasAvulsas(receitas); setEquipe(profissionais); setClientes(listaClientes); setVisiveis(permitidos);
     } finally { setCarregando(false); }
   }
 
-  const precos = useMemo(() => { const mapa = new Map<string, number>(); itens.forEach((item) => mapa.set(item.agendamento_id, (mapa.get(item.agendamento_id) ?? 0) + item.preco)); return mapa; }, [itens]);
+  // Itens com cliente_pacote_id já entraram como receita na venda do pacote
+  // (receitas_avulsas, lançamento separado) — não conta de novo aqui, senão
+  // a mesma sessão vira receita duas vezes (na venda e a cada uso).
+  const precos = useMemo(() => { const mapa = new Map<string, number>(); itens.forEach((item) => { if (item.cliente_pacote_id) return; mapa.set(item.agendamento_id, (mapa.get(item.agendamento_id) ?? 0) + item.preco); }); return mapa; }, [itens]);
   const equipeMap = useMemo(() => new Map(equipe.map((p) => [p.id, p])), [equipe]);
   const clientesMap = useMemo(() => new Map(clientes.map((c) => [c.id, c])), [clientes]);
   const agendamentosVisiveis = useMemo(() => agendamentos.filter((ag) => ag.status === 'CONCLUIDO' && (visiveis === null || !!ag.profissional_id && visiveis.includes(ag.profissional_id))), [agendamentos, visiveis]);
   const intervalo: [Date, Date] = aba === 'SEMANA' ? intervaloSemana(referencia) : aba === 'MES' || aba === 'DRE' ? intervaloMes(referencia) : [inicioDia(referencia), fimDia(referencia)];
   const agsPeriodo = agendamentosVisiveis.filter((ag) => { const data = new Date(ag.data_hora); return data >= intervalo[0] && data <= intervalo[1]; });
   const despesasPeriodo = visiveis === null ? despesas.filter((d) => { const data = new Date(d.data_despesa); return data >= intervalo[0] && data <= intervalo[1]; }) : [];
-  const receitaPeriodo = agsPeriodo.reduce((soma, ag) => soma + (precos.get(ag.id) ?? 0), 0);
+  // Receita de pacote é caixa entrando na hora da venda, não no uso — só
+  // aparece pra quem enxerga o financeiro completo (mesma regra das despesas).
+  const receitasAvulsasPeriodo = visiveis === null ? receitasAvulsas.filter((r) => { const data = new Date(r.data_receita); return data >= intervalo[0] && data <= intervalo[1]; }) : [];
+  const receitaPeriodo = agsPeriodo.reduce((soma, ag) => soma + (precos.get(ag.id) ?? 0), 0) + receitasAvulsasPeriodo.reduce((soma, r) => soma + r.valor, 0);
   const despesaPeriodo = despesasPeriodo.reduce((soma, d) => soma + d.valor, 0);
 
   const comissoes = useMemo(() => equipe.map((profissional) => {
@@ -111,6 +118,7 @@ export default function GestaoFinanceiraPage() {
           <h2 className='mb-3 font-medium'>{aba === 'CAIXA' ? 'Lançamentos do dia' : `Resumo do período • ${agsPeriodo.length} atendimentos`}</h2>
           <div className='flex flex-col gap-2'>{[
             ...agsPeriodo.map((ag) => ({ id: ag.id, data: ag.data_hora, entrada: true, titulo: `Atendimento • ${clientesMap.get(ag.cliente_id)?.nome ?? 'Cliente'}`, subtitulo: equipeMap.get(ag.profissional_id ?? '')?.nome ?? 'Não atribuído', valor: precos.get(ag.id) ?? 0 })),
+            ...receitasAvulsasPeriodo.map((r) => ({ id: r.id, data: r.data_receita, entrada: true, titulo: `${r.descricao} • ${clientesMap.get(r.cliente_id ?? '')?.nome ?? 'Cliente'}`, subtitulo: 'Venda de pacote', valor: r.valor })),
             ...despesasPeriodo.map((d) => ({ id: d.id, data: d.data_despesa, entrada: false, titulo: d.descricao, subtitulo: CATEGORIAS.find((c) => c.id === d.categoria)?.nome ?? 'Outros', valor: d.valor })),
           ].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()).map((lancamento) => <div key={`${lancamento.entrada ? 'e' : 's'}-${lancamento.id}`} className='card-elevated flex items-center gap-3 rounded-xl bg-surface p-3.5'><div className={`rounded-full p-2 ${lancamento.entrada ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>{lancamento.entrada ? <ArrowUpCircle size={17} /> : <ArrowDownCircle size={17} />}</div><div className='min-w-0 flex-1'><p className='truncate text-sm font-medium'>{lancamento.titulo}</p><p className='text-xs text-muted'>{lancamento.subtitulo} • {new Date(lancamento.data).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</p></div><p className={`font-semibold ${lancamento.entrada ? 'text-success' : 'text-danger'}`}>{lancamento.entrada ? '+' : '-'} {formatarMoeda(lancamento.valor)}</p>{!lancamento.entrada && aba === 'CAIXA' && <button onClick={() => removerDespesa(lancamento.id)} className='p-1.5 text-muted hover:text-danger'><Trash2 size={15} /></button>}</div>)}</div>
         </section>
