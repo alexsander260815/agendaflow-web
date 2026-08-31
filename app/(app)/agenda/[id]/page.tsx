@@ -146,6 +146,7 @@ function AgendamentoFormInner() {
   const [quantidadeRepeticoes, setQuantidadeRepeticoes] = useState("4");
   const [mensagemRecorrencia, setMensagemRecorrencia] = useState<string | null>(null);
   const [excluindoSerie, setExcluindoSerie] = useState(false);
+  const [mensagemErroSalvar, setMensagemErroSalvar] = useState<string | null>(null);
 
   async function handleGerarCobrancaPix() {
     if (!agendamentoAtual?.id || !clienteSelecionado) return;
@@ -498,6 +499,7 @@ function AgendamentoFormInner() {
   async function handleSalvar(ignorarConflito = false) {
     if (!perfil || !clienteSelecionado || itensComanda.length === 0) return;
     setSalvando(true);
+    setMensagemErroSalvar(null);
     try {
       if (!ignorarConflito) {
         const conflito = await verificarConflito();
@@ -629,6 +631,8 @@ function AgendamentoFormInner() {
       }
 
       voltarParaAgenda();
+    } catch (e) {
+      setMensagemErroSalvar(e instanceof Error ? e.message : "Não foi possível salvar o agendamento.");
     } finally {
       setSalvando(false);
     }
@@ -1084,6 +1088,9 @@ function AgendamentoFormInner() {
           rows={2}
         />
 
+        {mensagemErroSalvar && (
+          <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{mensagemErroSalvar}</p>
+        )}
         <button
           onClick={() => handleSalvar(false)}
           disabled={!podeSalvar || salvando}
