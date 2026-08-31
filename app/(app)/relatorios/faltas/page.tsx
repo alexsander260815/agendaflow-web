@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { RelatorioHeader } from "@/components/RelatorioHeader";
+import BotoesExportar from "@/components/BotoesExportar";
 import { profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
 import { listarAgendamentoServicos, listarAgendamentos, listarEquipe } from "@/lib/repositories";
 import { converterIsoParaMillis, formatarMoeda, janelaUltimosDias } from "@/lib/datetime";
@@ -92,6 +93,20 @@ export default function RelatorioFaltasPage() {
     <div className="mx-auto max-w-3xl p-5 md:p-8">
       <RelatorioHeader titulo="Relatório de Faltas" />
       <p className="mb-5 text-sm text-muted">Últimos 30 dias</p>
+      <BotoesExportar
+        nomeArquivo="relatorio-faltas"
+        colunas={[
+          { chave: "nome", rotulo: "Profissional" },
+          { chave: "total", rotulo: "Agendamentos" },
+          { chave: "faltas", rotulo: "Faltas" },
+          { chave: "taxaFaltas", rotulo: "Taxa de faltas (%)" },
+        ]}
+        linhas={
+          porProfissional.length > 0
+            ? porProfissional
+            : [{ nome: "Geral", total: totalAgendamentos, faltas, taxaFaltas: Number(taxaFaltas.toFixed(1)) }]
+        }
+      />
 
       {carregando ? (
         <div className="grid grid-cols-2 gap-3">

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { RelatorioHeader } from "@/components/RelatorioHeader";
+import BotoesExportar from "@/components/BotoesExportar";
 import { listarAgendamentos, listarEquipe } from "@/lib/repositories";
 import { profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
 import Avatar from "@/components/Avatar";
@@ -85,6 +86,16 @@ export default function FidelizacaoPage() {
     <div className="mx-auto max-w-3xl p-5 md:p-8">
       <RelatorioHeader titulo="Fidelização por Profissional" />
       <p className="mb-5 text-sm text-muted">Últimos 30 dias</p>
+      <BotoesExportar
+        nomeArquivo="fidelizacao"
+        colunas={[
+          { chave: "nomeProfissional", rotulo: "Profissional" },
+          { chave: "totalClientes", rotulo: "Clientes" },
+          { chave: "retornaram", rotulo: "Retornaram" },
+          { chave: "taxaRetorno", rotulo: "Taxa de retorno (%)" },
+        ]}
+        linhas={linhas.map((l) => ({ ...l, taxaRetorno: Number(l.taxaRetorno.toFixed(1)) }))}
+      />
 
       <div className="card-elevated gradient-accent mb-4 rounded-2xl border border-accent/15 bg-surface p-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-accent">Taxa média de retorno</p>

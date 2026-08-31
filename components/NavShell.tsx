@@ -207,7 +207,7 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="premium-shell flex min-h-dvh flex-1 flex-col md:flex-row">
       {/* Sidebar desktop */}
-      <aside className="hidden md:flex md:w-72 md:flex-col md:border-r md:border-border-subtle md:bg-surface/92 md:backdrop-blur-xl">
+      <aside className="hidden print:hidden md:flex md:w-72 md:flex-col md:border-r md:border-border-subtle md:bg-surface/92 md:backdrop-blur-xl">
         <div className="flex items-center gap-3 border-b border-border-subtle px-5 py-5">
           <Avatar nome={salao?.nome || 'AgendaFlow'} fotoUrl={salao?.logo_url} className="h-16 w-16 rounded-2xl text-lg ring-1 ring-accent/40" />
           <div className="min-w-0">
@@ -247,12 +247,12 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
       <AssistenteAgenda />
 
       {/* Bottom tabs mobile */}
-      <nav className="premium-nav-glow fixed bottom-2 left-2 right-2 z-20 flex rounded-2xl border border-border-subtle bg-surface/95 px-1 py-1 backdrop-blur-xl md:hidden">
+      <nav className="premium-nav-glow fixed bottom-2 left-2 right-2 z-20 flex rounded-2xl border border-border-subtle bg-surface/95 px-1 py-1 backdrop-blur-xl print:hidden md:hidden">
         {itensRodape.map((item) => (
           <TabLink key={item.href} item={item} ativo={pathname === item.href} />
         ))}
       </nav>
-      <button onClick={() => setMostrarMais(true)} aria-label="Abrir mais opções" className="fixed bottom-20 right-4 z-20 rounded-2xl border border-accent/30 bg-surface p-3 text-accent shadow-lg md:hidden"><Menu size={23} /></button>
+      <button onClick={() => setMostrarMais(true)} aria-label="Abrir mais opções" className="fixed bottom-20 right-4 z-20 rounded-2xl border border-accent/30 bg-surface p-3 text-accent shadow-lg print:hidden md:hidden"><Menu size={23} /></button>
 
       {mostrarMais && (
         <div className="fixed inset-0 z-30 flex items-end bg-black/60 backdrop-blur-sm md:hidden" onClick={() => setMostrarMais(false)}>

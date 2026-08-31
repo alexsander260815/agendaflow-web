@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { RelatorioHeader } from "@/components/RelatorioHeader";
+import BotoesExportar from "@/components/BotoesExportar";
 import {
   listarAgendamentoServicos,
   listarAgendamentos,
@@ -215,6 +216,18 @@ export default function RelatorioComissoesPage() {
       <p className="mb-3 text-xs text-muted">
         {filtroAtivo ? "Revisão do período (inclui já fechadas)." : "Fila de comissões pendentes (não fechadas)."}
       </p>
+
+      <BotoesExportar
+        nomeArquivo="relatorio-comissoes"
+        colunas={[
+          { chave: "nomeProfissional", rotulo: "Profissional" },
+          { chave: "quantidadeAtendimentos", rotulo: "Atendimentos" },
+          { chave: "comissaoPercentual", rotulo: "Comissão (%)" },
+          { chave: "faturamentoBruto", rotulo: "Faturamento bruto" },
+          { chave: "valorComissao", rotulo: "Valor da comissão" },
+        ]}
+        linhas={linhas}
+      />
 
       {carregando ? (
         <div className="flex flex-col gap-2">

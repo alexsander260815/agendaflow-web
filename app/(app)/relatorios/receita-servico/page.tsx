@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { RelatorioHeader, PeriodoChips } from "@/components/RelatorioHeader";
+import BotoesExportar from "@/components/BotoesExportar";
 import { carregarReceitas, ReceitaPorServico } from "@/lib/relatorios";
 import { formatarMoeda, PeriodoRapido } from "@/lib/datetime";
 
@@ -28,6 +29,15 @@ export default function ReceitaPorServicoPage() {
     <div className="mx-auto max-w-3xl p-5 md:p-8">
       <RelatorioHeader titulo="Receita por Serviço" />
       <PeriodoChips periodo={periodo} onMudar={setPeriodo} />
+      <BotoesExportar
+        nomeArquivo="receita-por-servico"
+        colunas={[
+          { chave: "nomeServico", rotulo: "Serviço" },
+          { chave: "quantidade", rotulo: "Quantidade" },
+          { chave: "receitaTotal", rotulo: "Receita" },
+        ]}
+        linhas={linhas}
+      />
 
       <div className="card-elevated gradient-accent mb-4 rounded-2xl border border-accent/15 bg-surface p-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-accent">Receita total</p>

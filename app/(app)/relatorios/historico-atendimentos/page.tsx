@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { RelatorioHeader, PeriodoChips } from "@/components/RelatorioHeader";
+import BotoesExportar from "@/components/BotoesExportar";
 import { profissionaisVisiveisFinanceiro } from "@/lib/permissoes";
 import { listarAgendamentoServicos, listarAgendamentos, listarClientes, listarEquipe } from "@/lib/repositories";
 import { AgendamentoServico } from "@/lib/types";
@@ -80,6 +81,17 @@ export default function HistoricoAtendimentosPage() {
     <div className="mx-auto max-w-3xl p-5 md:p-8">
       <RelatorioHeader titulo="Histórico de Atendimentos" />
       <PeriodoChips periodo={periodo} onMudar={setPeriodo} />
+      <BotoesExportar
+        nomeArquivo="historico-atendimentos"
+        colunas={[
+          { chave: "data", rotulo: "Data/Hora" },
+          { chave: "nomeCliente", rotulo: "Cliente" },
+          { chave: "nomeProfissional", rotulo: "Profissional" },
+          { chave: "nomesServicos", rotulo: "Serviços" },
+          { chave: "valorTotal", rotulo: "Valor" },
+        ]}
+        linhas={linhas.map((l) => ({ ...l, data: formatarDataHora(l.dataHoraMillis) }))}
+      />
 
       <div className="card-elevated mb-4 rounded-2xl bg-surface p-4">
         <p className="text-sm text-muted">Total de atendimentos</p>

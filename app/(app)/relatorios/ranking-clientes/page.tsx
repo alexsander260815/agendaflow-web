@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Award, CalendarRange, Flame, Trophy } from 'lucide-react';
 import { RelatorioHeader } from '@/components/RelatorioHeader';
+import BotoesExportar from '@/components/BotoesExportar';
 import { useAuth } from '@/lib/auth-context';
 import { formatarMoeda } from '@/lib/datetime';
 import { profissionaisVisiveisFinanceiro } from '@/lib/permissoes';
@@ -77,6 +78,17 @@ export default function RankingClientesPage() {
       <div className='mb-5 grid grid-cols-3 gap-2'>{[
         ['MES_ATUAL', 'Este mês'], ['MES_ANTERIOR', 'Mês anterior'], ['SETE_DIAS', '7 dias'],
       ].map(([id, nome]) => <button key={id} onClick={() => setPeriodo(id as Periodo)} className={`rounded-xl px-3 py-2.5 text-sm ${periodo === id ? 'bg-accent font-medium text-accent-foreground' : 'bg-surface text-muted'}`}>{nome}</button>)}</div>
+
+      <BotoesExportar
+        nomeArquivo="ranking-clientes"
+        colunas={[
+          { chave: 'nome', rotulo: 'Cliente' },
+          { chave: 'telefone', rotulo: 'Telefone' },
+          { chave: 'visitas', rotulo: 'Visitas' },
+          { chave: 'gasto', rotulo: 'Total gasto' },
+        ]}
+        linhas={ranking}
+      />
 
       {carregando ? <div className='h-52 animate-pulse rounded-2xl bg-surface' /> : ranking.length === 0 ? <div className='rounded-2xl bg-surface p-8 text-center text-sm text-muted'>Nenhum atendimento concluído nesse período.</div> : (
         <section><div className='mb-3 flex items-center gap-2'><Trophy size={17} className='text-accent' /><h2 className='font-medium'>Top 10 clientes</h2></div><div className='flex flex-col gap-2'>{ranking.map((cliente, i) => <div key={cliente.id} className={`card-elevated flex items-center gap-3 rounded-xl bg-surface p-4 ${i === 0 ? 'border border-accent/25' : ''}`}><div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${i < 3 ? 'bg-accent/15 text-accent' : 'bg-surface-alt text-muted'}`}>{i === 0 ? <Award size={18} /> : i + 1}</div><div className='min-w-0 flex-1'><p className='truncate font-medium'>{cliente.nome}</p><p className='text-xs text-muted'>{cliente.visitas} {cliente.visitas === 1 ? 'visita' : 'visitas'}</p></div><p className='font-semibold tabular-nums'>{formatarMoeda(cliente.gasto)}</p></div>)}</div></section>

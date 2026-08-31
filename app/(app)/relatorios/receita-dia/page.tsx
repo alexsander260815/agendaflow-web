@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { RelatorioHeader, PeriodoChips } from "@/components/RelatorioHeader";
+import BotoesExportar from "@/components/BotoesExportar";
 import { carregarReceitas, ReceitaPorDia } from "@/lib/relatorios";
 import { formatarMoeda, PeriodoRapido } from "@/lib/datetime";
 
@@ -29,6 +30,15 @@ export default function ReceitaPorDiaPage() {
     <div className="mx-auto max-w-3xl p-5 md:p-8">
       <RelatorioHeader titulo="Receita por Dia" />
       <PeriodoChips periodo={periodo} onMudar={setPeriodo} />
+      <BotoesExportar
+        nomeArquivo="receita-por-dia"
+        colunas={[
+          { chave: "label", rotulo: "Dia" },
+          { chave: "quantidade", rotulo: "Atendimentos" },
+          { chave: "receitaTotal", rotulo: "Receita" },
+        ]}
+        linhas={linhas}
+      />
 
       {carregando ? (
         <div className="h-40 animate-pulse rounded-2xl bg-surface" />
