@@ -134,6 +134,8 @@ function AgendamentoFormInner() {
   const [salao, setSalao] = useState<Salao | null>(null);
   const [gerandoSinal, setGerandoSinal] = useState(false);
   const [mensagemSinal, setMensagemSinal] = useState<string | null>(null);
+  const [concluindo, setConcluindo] = useState(false);
+  const [mensagemErroConcluir, setMensagemErroConcluir] = useState<string | null>(null);
 
   async function handleGerarCobrancaPix() {
     if (!agendamentoAtual?.id || !clienteSelecionado) return;
@@ -546,39 +548,47 @@ function AgendamentoFormInner() {
 
   async function handleMarcarConcluido(formaPagamento: string) {
     if (!agendamentoAtual || !agendamentoId || !perfil) return;
-    await concluirVendaProdutos(agendamentoId, formaPagamento);
+    setConcluindo(true);
+    setMensagemErroConcluir(null);
+    try {
+      await concluirVendaProdutos(agendamentoId, formaPagamento);
 
-    const itens = await listarItensPorAgendamento(agendamentoId);
-    for (const item of itens) {
-      if (item.cliente_pacote_id && !item.pacote_descontado) {
-        const pacote = await buscarClientePacote(item.cliente_pacote_id);
-        if (pacote && pacote.quantidade_restante > 0) {
-          await atualizarQuantidadeClientePacote(item.cliente_pacote_id, pacote.quantidade_restante - 1);
-          await marcarComoDescontado(item.id);
+      const itens = await listarItensPorAgendamento(agendamentoId);
+      for (const item of itens) {
+        if (item.cliente_pacote_id && !item.pacote_descontado) {
+          const pacote = await buscarClientePacote(item.cliente_pacote_id);
+          if (pacote && pacote.quantidade_restante > 0) {
+            await atualizarQuantidadeClientePacote(item.cliente_pacote_id, pacote.quantidade_restante - 1);
+            await marcarComoDescontado(item.id);
+          }
         }
       }
-    }
 
-    const dias = parseInt(diasParaRetorno, 10);
-    if (!isNaN(dias) && dias > 0) {
-      try {
-        const dataRetornoMillis = converterIsoParaMillis(agendamentoAtual.data_hora) + dias * 24 * 60 * 60 * 1000;
-        await criarRetornoCliente({
-          salao_id: perfil.salao_id,
-          cliente_id: agendamentoAtual.cliente_id,
-          profissional_id: agendamentoAtual.profissional_id,
-          agendamento_id: agendamentoId,
-          nome_servico: itens.map((i) => i.nome_servico).join(", ") || "Atendimento",
-          data_retorno: converterMillisParaIso(dataRetornoMillis),
-          status: "PENDENTE",
-        });
-      } catch {
-        // se o retorno não conseguir ser salvo, não trava a conclusão do agendamento
+      const dias = parseInt(diasParaRetorno, 10);
+      if (!isNaN(dias) && dias > 0) {
+        try {
+          const dataRetornoMillis = converterIsoParaMillis(agendamentoAtual.data_hora) + dias * 24 * 60 * 60 * 1000;
+          await criarRetornoCliente({
+            salao_id: perfil.salao_id,
+            cliente_id: agendamentoAtual.cliente_id,
+            profissional_id: agendamentoAtual.profissional_id,
+            agendamento_id: agendamentoId,
+            nome_servico: itens.map((i) => i.nome_servico).join(", ") || "Atendimento",
+            data_retorno: converterMillisParaIso(dataRetornoMillis),
+            status: "PENDENTE",
+          });
+        } catch {
+          // se o retorno não conseguir ser salvo, não trava a conclusão do agendamento
+        }
       }
+      setDiasParaRetorno("");
+      setMostrarPagamento(false);
+      voltarParaAgenda();
+    } catch (e) {
+      setMensagemErroConcluir(e instanceof Error ? e.message : "Não foi possível concluir o atendimento.");
+    } finally {
+      setConcluindo(false);
     }
-    setDiasParaRetorno("");
-    setMostrarPagamento(false);
-    voltarParaAgenda();
   }
 
   async function handleConfirmarSinal() {
@@ -902,7 +912,10 @@ function AgendamentoFormInner() {
                   </button>
                 )}
                 <button
-                  onClick={() => setMostrarPagamento(true)}
+                  onClick={() => {
+                    setMensagemErroConcluir(null);
+                    setMostrarPagamento(true);
+                  }}
                   className="flex items-center justify-center gap-1.5 rounded-xl bg-finalizado px-4 py-3 font-medium text-finalizado-foreground transition-opacity hover:opacity-90"
                 >
                   <Check size={16} /> Marcar como Concluído
@@ -1060,13 +1073,18 @@ function AgendamentoFormInner() {
           <div className="card-elevated w-full max-w-sm rounded-2xl bg-surface p-5">
             <p className="mb-3 font-medium">Forma de pagamento</p>
 
+            {mensagemErroConcluir && (
+              <p className="mb-3 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{mensagemErroConcluir}</p>
+            )}
+
             <input
               type="number"
               min={0}
               value={diasParaRetorno}
               onChange={(e) => setDiasParaRetorno(e.target.value.replace(/\D/g, ""))}
               placeholder="Retorno em quantos dias? (opcional)"
-              className="mb-3 w-full rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+              disabled={concluindo}
+              className="mb-3 w-full rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-accent disabled:opacity-60"
             />
 
             <div className="flex flex-col gap-1">
@@ -1078,9 +1096,10 @@ function AgendamentoFormInner() {
                 <button
                   key={f.valor}
                   onClick={() => handleMarcarConcluido(f.valor)}
-                  className="rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-surface-alt"
+                  disabled={concluindo}
+                  className="rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-surface-alt disabled:opacity-60"
                 >
-                  {f.label}
+                  {concluindo ? "Concluindo..." : f.label}
                 </button>
               ))}
             </div>
@@ -1088,8 +1107,10 @@ function AgendamentoFormInner() {
               onClick={() => {
                 setMostrarPagamento(false);
                 setDiasParaRetorno("");
+                setMensagemErroConcluir(null);
               }}
-              className="mt-3 w-full rounded-lg border border-border-subtle py-2 text-sm transition-colors hover:bg-surface-alt"
+              disabled={concluindo}
+              className="mt-3 w-full rounded-lg border border-border-subtle py-2 text-sm transition-colors hover:bg-surface-alt disabled:opacity-60"
             >
               Cancelar
             </button>
