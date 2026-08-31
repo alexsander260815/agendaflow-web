@@ -12,6 +12,7 @@ import {
   CalendarDays,
   CalendarOff,
   CreditCard,
+  Gift,
   HeartHandshake,
   Landmark,
   LayoutGrid,
@@ -65,6 +66,7 @@ const ITENS_OPERACOES: NavItem[] = [
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/servicos", label: "Serviços", icon: Scissors },
   { href: "/retorno-clientes", label: "Retorno de Clientes", icon: BellRing },
+  { href: "/campanhas", label: "Campanhas", icon: Gift },
   { href: "/bloqueios-agenda", label: "Bloqueios de Agenda", icon: CalendarOff },
 ];
 
