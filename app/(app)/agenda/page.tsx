@@ -342,12 +342,12 @@ function handleEscolherData(valor: string) {
         </div>
         <div className="flex items-center gap-2">
           <div className="card-elevated flex min-w-0 flex-1 items-center rounded-2xl border border-border-subtle bg-surface p-1 sm:min-w-[390px]">
-            <button aria-label="Dia anterior" onClick={irParaDiaAnterior} className="rounded-xl p-2.5 text-muted transition-colors hover:bg-surface-alt hover:text-foreground"><ChevronLeft size={20} /></button>
+            <button aria-label="Dia anterior" onClick={irParaDiaAnterior} className="shrink-0 rounded-xl p-2.5 text-muted transition-colors hover:bg-surface-alt hover:text-foreground"><ChevronLeft size={20} /></button>
             <div className="relative min-w-0 flex-1 py-2 text-center text-sm font-semibold capitalize sm:text-base">
               <span className="truncate">{dataLabel}</span>
               <input type="date" value={dataParaInput(dataSelecionada)} onChange={(e) => handleEscolherData(e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label="Escolher data" />
             </div>
-            <button aria-label="Próximo dia" onClick={irParaProximoDia} className="rounded-xl p-2.5 text-muted transition-colors hover:bg-surface-alt hover:text-foreground"><ChevronRight size={20} /></button>
+            <button aria-label="Próximo dia" onClick={irParaProximoDia} className="shrink-0 rounded-xl p-2.5 text-muted transition-colors hover:bg-surface-alt hover:text-foreground"><ChevronRight size={20} /></button>
           </div>
           {!hoje && <button onClick={() => setDataSelecionada(inicioDoDia())} className="rounded-2xl border border-accent/60 bg-accent/10 px-4 py-3 text-sm font-bold text-accent transition-colors hover:bg-accent hover:text-accent-foreground">Hoje</button>}
         </div>
@@ -477,7 +477,7 @@ function handleEscolherData(valor: string) {
         <button
           onClick={() => setMostrarNovoBloqueio(true)}
           aria-label="Bloquear horário"
-          className="fixed bottom-44 right-5 flex h-11 w-11 items-center justify-center rounded-full bg-surface text-danger shadow-lg transition-transform hover:scale-105 md:bottom-28"
+          className="fixed bottom-56 right-5 flex h-11 w-11 items-center justify-center rounded-full bg-surface text-danger shadow-lg transition-transform hover:scale-105 md:bottom-28"
         >
           <Ban size={20} />
         </button>
@@ -486,7 +486,7 @@ function handleEscolherData(valor: string) {
       <button
         onClick={() => abrirNovoAgendamento()}
         aria-label="Novo agendamento"
-        className="fixed bottom-24 right-5 z-20 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-accent to-[#ec4899] text-accent-foreground shadow-xl shadow-accent/35 transition-transform hover:scale-105 md:bottom-8 md:right-8"
+        className="fixed bottom-36 right-5 z-20 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-accent to-[#ec4899] text-accent-foreground shadow-xl shadow-accent/35 transition-transform hover:scale-105 md:bottom-8 md:right-8"
       >
         <Plus size={28} strokeWidth={2.5} />
       </button>
