@@ -211,7 +211,7 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="premium-shell flex min-h-dvh flex-1 flex-col md:flex-row">
       {/* Sidebar desktop */}
-      <aside className="hidden print:hidden md:flex md:w-72 md:flex-col md:border-r md:border-border-subtle md:bg-surface/92 md:backdrop-blur-xl">
+      <aside className="hidden print:hidden md:sticky md:top-0 md:flex md:h-dvh md:w-72 md:flex-col md:border-r md:border-border-subtle md:bg-surface/92 md:backdrop-blur-xl">
         <div className="flex items-center gap-3 border-b border-border-subtle px-5 py-5">
           <Avatar nome={salao?.nome || 'AgendaFlow'} fotoUrl={salao?.logo_url} className="h-16 w-16 rounded-2xl text-lg ring-1 ring-accent/40" />
           <div className="min-w-0">
@@ -246,8 +246,10 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* Conteúdo */}
-      <main className="flex-1 overflow-y-auto pb-24 md:pb-0">{children}</main>
+      {/* Conteúdo — a página inteira rola (não uma div interna): no iOS Safari,
+          "position: fixed" fica bugado (gruda no conteúdo em vez de ficar fixo
+          na tela) quando o scroll acontece dentro de uma div em vez do body. */}
+      <main className="min-w-0 flex-1 pb-24 md:pb-0">{children}</main>
       <AssistenteAgenda />
 
       {/* Bottom tabs mobile */}
