@@ -250,7 +250,10 @@ export default function NavShell({ children }: { children: React.ReactNode }) {
           "position: fixed" fica bugado (gruda no conteúdo em vez de ficar fixo
           na tela) quando o scroll acontece dentro de uma div em vez do body. */}
       <main className="min-w-0 flex-1 pb-24 md:pb-0">{children}</main>
-      <AssistenteAgenda />
+      {/* Escondido na Agenda: a tela já é cheia de botão flutuante (bloquear
+          horário virou ícone no cabeçalho, mas o "+" continua) — mais um
+          círculo ali só atrapalhava a grade de horários. */}
+      {pathname !== "/agenda" && <AssistenteAgenda />}
 
       {/* Bottom tabs mobile */}
       <nav className="premium-nav-glow fixed bottom-2 left-2 right-2 z-20 flex rounded-2xl border border-border-subtle bg-surface/95 px-1 py-1 backdrop-blur-xl print:hidden md:hidden">

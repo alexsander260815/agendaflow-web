@@ -356,7 +356,16 @@ function handleEscolherData(valor: string) {
             </div>
             <button aria-label="Próximo dia" onClick={irParaProximoDia} className="shrink-0 rounded-xl p-2.5 text-muted transition-colors hover:bg-surface-alt hover:text-foreground"><ChevronRight size={20} /></button>
           </div>
-          {!hoje && <button onClick={() => setDataSelecionada(inicioDoDia())} className="rounded-2xl border border-accent/60 bg-accent/10 px-4 py-3 text-sm font-bold text-accent transition-colors hover:bg-accent hover:text-accent-foreground">Hoje</button>}
+          {!hoje && <button onClick={() => setDataSelecionada(inicioDoDia())} className="shrink-0 rounded-2xl border border-accent/60 bg-accent/10 px-4 py-3 text-sm font-bold text-accent transition-colors hover:bg-accent hover:text-accent-foreground">Hoje</button>}
+          {perfil && profissionalSelecionadoId && (perfil.papel === "DONO" || profissionalSelecionadoId === perfil.id) && (
+            <button
+              onClick={() => setMostrarNovoBloqueio(true)}
+              aria-label="Bloquear horário"
+              className="card-elevated flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border-subtle bg-surface text-danger transition-colors hover:bg-danger/10"
+            >
+              <Ban size={19} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -478,16 +487,6 @@ function handleEscolherData(valor: string) {
             );
           })}
         </div>
-      )}
-
-      {perfil && profissionalSelecionadoId && (perfil.papel === "DONO" || profissionalSelecionadoId === perfil.id) && (
-        <button
-          onClick={() => setMostrarNovoBloqueio(true)}
-          aria-label="Bloquear horário"
-          className="fixed bottom-56 right-5 flex h-11 w-11 items-center justify-center rounded-full bg-surface text-danger shadow-lg transition-transform hover:scale-105 md:bottom-28"
-        >
-          <Ban size={20} />
-        </button>
       )}
 
       <button
