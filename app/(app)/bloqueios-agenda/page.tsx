@@ -10,6 +10,7 @@ import {
 } from "@/lib/repositories";
 import { formatarDataHora } from "@/lib/datetime";
 import { BloqueioAgenda, Perfil } from "@/lib/types";
+import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 interface BloqueioItem extends BloqueioAgenda {
   nomeProfissional: string;
@@ -108,7 +109,10 @@ export default function BloqueiosAgendaPage() {
   return (
     <div className="mx-auto max-w-2xl p-5 md:p-8">
       <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Bloqueios de Agenda</h1>
+        <div className="flex items-center">
+          <BotaoVoltarInicio />
+          <h1 className="text-2xl font-semibold tracking-tight">Bloqueios de Agenda</h1>
+        </div>
         <button
           onClick={() => setMostrarForm((v) => !v)}
           className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"

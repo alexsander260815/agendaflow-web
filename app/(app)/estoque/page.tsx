@@ -27,6 +27,7 @@ import {
 } from "@/lib/repositories";
 import { MovimentacaoEstoque, Produto, Servico, ServicoProduto, TipoMovimentacao } from "@/lib/types";
 import { formatarMoeda } from "@/lib/datetime";
+import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 const ABAS = ["saldo", "catalogo", "consumo", "historico"] as const;
 type Aba = (typeof ABAS)[number];
@@ -154,7 +155,10 @@ export default function EstoquePage() {
 
   return (
     <div className="mx-auto max-w-3xl p-5 pb-16 md:p-8">
-      <h1 className="mb-5 text-2xl font-semibold tracking-tight">Estoque</h1>
+      <div className="mb-5 flex items-center">
+        <BotaoVoltarInicio />
+        <h1 className="text-2xl font-semibold tracking-tight">Estoque</h1>
+      </div>
 
       <div className="mb-5 flex gap-1 overflow-x-auto rounded-xl bg-surface p-1">
         {ABAS.map((a) => (

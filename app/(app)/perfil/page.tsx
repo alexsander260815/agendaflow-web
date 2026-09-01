@@ -7,6 +7,7 @@ import { atualizarPixPerfil, atualizarTemaVisual, definirAtendeClientes } from "
 import { enviarFotoPerfil } from "@/lib/repositories/fotoPerfilRepository";
 import { corAvatar, iniciais } from "@/lib/avatar";
 import { aplicarTemaVisual, TEMAS_VISUAIS } from "@/lib/theme";
+import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 const LABEL_PAPEL: Record<string, string> = {
   DONO: "Dono(a)",
@@ -87,7 +88,10 @@ export default function MeuPerfilPage() {
 
   return (
     <div className="mx-auto max-w-md p-5 md:p-8">
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Meu Perfil</h1>
+      <div className="mb-6 flex items-center">
+        <BotaoVoltarInicio />
+        <h1 className="text-2xl font-semibold tracking-tight">Meu Perfil</h1>
+      </div>
 
       <div className="flex flex-col items-center gap-4">
         <div className="relative">

@@ -13,6 +13,7 @@ import {
 } from "@/lib/repositories";
 import { Perfil } from "@/lib/types";
 import Avatar from "@/components/Avatar";
+import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 export default function EquipePage() {
   const { perfil } = useAuth();
@@ -72,7 +73,10 @@ export default function EquipePage() {
 
   return (
     <div className="mx-auto max-w-2xl p-5 md:p-8">
-      <h1 className="mb-5 text-2xl font-semibold tracking-tight">Equipe</h1>
+      <div className="mb-5 flex items-center">
+        <BotaoVoltarInicio />
+        <h1 className="text-2xl font-semibold tracking-tight">Equipe</h1>
+      </div>
 
       {codigoGerado ? (
         <div className="card-elevated mb-5 flex flex-col items-center gap-3 rounded-2xl bg-surface p-6 text-center">

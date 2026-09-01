@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CheckCircle2, Mail, MessageCircle, Send } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { enviarMensagemSuporte } from "@/lib/repositories/suporteRepository";
+import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 const NUMERO_WHATSAPP = "5551981522887";
 const EMAIL_SUPORTE = "agendaflowpro@gmail.com";
@@ -31,7 +32,10 @@ export default function SuportePage() {
 
   return (
     <div className="mx-auto max-w-xl p-5 md:p-8">
-      <h1 className="mb-5 text-2xl font-semibold tracking-tight">Suporte</h1>
+      <div className="mb-5 flex items-center">
+        <BotaoVoltarInicio />
+        <h1 className="text-2xl font-semibold tracking-tight">Suporte</h1>
+      </div>
 
       <div className="card-elevated flex flex-col items-center gap-3 rounded-2xl bg-surface p-8 text-center">
         <MessageCircle size={28} className="text-accent" />

@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { buscarMinhaAssinatura, cancelarMinhaAssinatura, criarAssinatura, listarPlanos } from "@/lib/repositories";
 import { Assinatura, Plano } from "@/lib/types";
 import { formatarMoeda } from "@/lib/datetime";
+import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 export default function PlanosPage() {
   const { perfil } = useAuth();
@@ -74,7 +75,10 @@ export default function PlanosPage() {
 
   return (
     <div className="mx-auto max-w-3xl p-5 md:p-8">
-      <h1 className="mb-5 text-2xl font-semibold tracking-tight">Planos</h1>
+      <div className="mb-5 flex items-center">
+        <BotaoVoltarInicio />
+        <h1 className="text-2xl font-semibold tracking-tight">Planos</h1>
+      </div>
 
       {carregando ? (
         <div className="h-40 animate-pulse rounded-2xl bg-surface" />

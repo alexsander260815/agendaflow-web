@@ -12,6 +12,7 @@ import {
   User,
   Wallet,
 } from "lucide-react";
+import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 const RELATORIOS = [
   {
@@ -73,7 +74,10 @@ const RELATORIOS = [
 export default function RelatoriosPage() {
   return (
     <div className="mx-auto max-w-3xl p-5 md:p-8">
-      <h1 className="mb-5 text-2xl font-semibold tracking-tight">Relatórios</h1>
+      <div className="mb-5 flex items-center">
+        <BotaoVoltarInicio />
+        <h1 className="text-2xl font-semibold tracking-tight">Relatórios</h1>
+      </div>
 
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         {RELATORIOS.map((r) => {

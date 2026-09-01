@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import AcessoRestrito from "@/components/AcessoRestrito";
 import { buscarMeuSalao, atualizarSalao } from "@/lib/repositories";
 import { Salao } from "@/lib/types";
+import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 const inputClass =
   "w-full rounded-xl border border-border-subtle bg-surface px-4 py-3 outline-none transition-colors focus:border-accent";
@@ -67,6 +68,7 @@ export default function PagamentosPage() {
   return (
     <div className="mx-auto max-w-2xl p-5 pb-16 md:p-8">
       <div className="mb-6 flex items-center gap-2">
+        <BotaoVoltarInicio />
         <Landmark size={20} className="text-accent" />
         <h1 className="text-2xl font-semibold tracking-tight">Pagamentos</h1>
       </div>

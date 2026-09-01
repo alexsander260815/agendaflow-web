@@ -7,6 +7,7 @@ import { profissionaisVisiveisAgenda } from "@/lib/permissoes";
 import { mensagemEfetiva, mensagemPadraoRetorno, montarMensagemRetorno } from "@/lib/mensagens";
 import { abrirWhatsApp } from "@/lib/whatsapp";
 import { Cliente, Perfil, RetornoCliente, Salao } from "@/lib/types";
+import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 interface RetornoItem {
   id: string;
@@ -101,7 +102,10 @@ export default function RetornoClientesPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-5 md:p-8">
-      <h1 className="mb-5 text-2xl font-semibold tracking-tight">Retorno de Clientes</h1>
+      <div className="mb-5 flex items-center">
+        <BotaoVoltarInicio />
+        <h1 className="text-2xl font-semibold tracking-tight">Retorno de Clientes</h1>
+      </div>
 
       {carregando ? (
         <div className="flex flex-col gap-2">

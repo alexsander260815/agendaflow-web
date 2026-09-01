@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { buscarMeuSalao, listarAgendamentos, listarClientes } from "@/lib/repositories";
 import { abrirWhatsApp } from "@/lib/whatsapp";
 import { Agendamento, Cliente, Salao } from "@/lib/types";
+import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 const MENSAGEM_ANIVERSARIO_PADRAO =
   "Feliz aniversário, {nome}! 🎉 A equipe do {salao} deseja um dia incrível! Que tal comemorar agendando aquele cuidado que você merece?";
@@ -91,7 +92,10 @@ export default function CampanhasPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-5 pb-16 md:p-8">
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight">Campanhas</h1>
+      <div className="mb-1 flex items-center">
+        <BotaoVoltarInicio />
+        <h1 className="text-2xl font-semibold tracking-tight">Campanhas</h1>
+      </div>
       <p className="mb-5 text-sm text-muted">
         Mensagens em massa pra aniversariantes do mês e clientes que sumiram — cada envio abre o WhatsApp já com o
         texto pronto.

@@ -13,6 +13,7 @@ import {
   montarMensagemRetorno,
   substituirMarcadores,
 } from "@/lib/mensagens";
+import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 type Campos = {
   mensagem_confirmacao: string | null;
@@ -107,6 +108,7 @@ export default function MensagensPage() {
   return (
     <div className="mx-auto max-w-2xl p-5 pb-16 md:p-8">
       <div className="mb-6 flex items-center gap-2">
+        <BotaoVoltarInicio />
         <MessageSquare size={20} className="text-accent" />
         <h1 className="text-2xl font-semibold tracking-tight">Mensagens</h1>
       </div>

@@ -13,6 +13,7 @@ import {
   listarServicos,
 } from '@/lib/repositories';
 import { Salao, Servico } from '@/lib/types';
+import BotaoVoltarInicio from '@/components/BotaoVoltarInicio';
 
 export default function CalculadoraPrecoPage() {
   const { perfil } = useAuth();
@@ -114,7 +115,7 @@ export default function CalculadoraPrecoPage() {
 
   return (
     <div className='mx-auto max-w-2xl p-5 pb-16 md:p-8'>
-      <div className='mb-6 flex items-center gap-3'><div className='rounded-xl bg-accent/15 p-2.5 text-accent'><Calculator size={22} /></div><div><h1 className='text-2xl font-semibold tracking-tight'>Calculadora de Preço</h1><p className='text-sm text-muted'>Material gasto + horas do atendimento + margem = quanto cobrar.</p></div></div>
+      <div className='mb-6 flex items-center gap-3'><BotaoVoltarInicio /><div className='rounded-xl bg-accent/15 p-2.5 text-accent'><Calculator size={22} /></div><div><h1 className='text-2xl font-semibold tracking-tight'>Calculadora de Preço</h1><p className='text-sm text-muted'>Material gasto + horas do atendimento + margem = quanto cobrar.</p></div></div>
 
       <section className='card-elevated flex flex-col gap-4 rounded-2xl bg-surface p-5'>
         <p className='text-sm font-medium'>1. Escolha o serviço</p>

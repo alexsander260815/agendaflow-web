@@ -13,6 +13,7 @@ import {
 } from "@/lib/repositories";
 import { abrirWhatsApp } from "@/lib/whatsapp";
 import { Cliente, FilaEspera, Servico } from "@/lib/types";
+import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 function formatarDataDesejada(iso: string): string {
   const [ano, mes, dia] = iso.split("-").map(Number);
@@ -108,7 +109,10 @@ export default function FilaEsperaPage() {
   return (
     <div className="mx-auto max-w-2xl p-5 pb-16 md:p-8">
       <div className="mb-1 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Fila de Espera</h1>
+        <div className="flex items-center">
+          <BotaoVoltarInicio />
+          <h1 className="text-2xl font-semibold tracking-tight">Fila de Espera</h1>
+        </div>
         <button
           onClick={() => setMostrarNovo(true)}
           className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-medium text-accent-foreground transition-opacity hover:opacity-90"

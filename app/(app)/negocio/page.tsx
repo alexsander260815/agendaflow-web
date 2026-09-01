@@ -9,6 +9,7 @@ import { buscarMeuSalao, atualizarSalao, listarHorarios, salvarHorario, deletarH
 import { enviarLogo } from "@/lib/repositories/logoRepository";
 import { Salao, HorarioFuncionamento } from "@/lib/types";
 import { aplicarTemaVisual, TEMAS_VISUAIS } from '@/lib/theme';
+import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 const DURACOES = [15, 30, 45, 60, 90, 120];
 
@@ -113,7 +114,10 @@ export default function MeuNegocioPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-5 pb-16 md:p-8">
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Meu Negócio</h1>
+      <div className="mb-6 flex items-center">
+        <BotaoVoltarInicio />
+        <h1 className="text-2xl font-semibold tracking-tight">Meu Negócio</h1>
+      </div>
 
       <div className="mb-6 flex flex-col items-center gap-3">
         <div className="relative">

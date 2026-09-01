@@ -7,6 +7,7 @@ import { formatarMoeda } from '@/lib/datetime';
 import { profissionaisVisiveisFinanceiro } from '@/lib/permissoes';
 import { atualizarMetaFaturamentoPerfil, atualizarSalao, buscarMeuSalao, listarAgendamentos, listarAgendamentoServicos, listarEquipe, listarReceitasAvulsas } from '@/lib/repositories';
 import { Perfil, Salao } from '@/lib/types';
+import BotaoVoltarInicio from '@/components/BotaoVoltarInicio';
 
 interface LinhaProfissional { perfil: Perfil; receita: number; atendimentos: number }
 
@@ -103,6 +104,7 @@ function VisaoSalao() {
   return (
     <div className='mx-auto max-w-3xl p-5 pb-16 md:p-8'>
       <div className='mb-6 flex items-center gap-3'>
+        <BotaoVoltarInicio />
         <div className='rounded-xl bg-accent/15 p-2.5 text-accent'><Target size={22} /></div>
         <div><h1 className='text-2xl font-semibold tracking-tight'>Meta de Faturamento</h1><p className='text-sm text-muted'>Acompanhe o objetivo do salão neste mês.</p></div>
       </div>
@@ -187,6 +189,7 @@ function VisaoPessoal({ perfil }: { perfil: Perfil }) {
   return (
     <div className='mx-auto max-w-3xl p-5 pb-16 md:p-8'>
       <div className='mb-6 flex items-center gap-3'>
+        <BotaoVoltarInicio />
         <div className='rounded-xl bg-accent/15 p-2.5 text-accent'><Target size={22} /></div>
         <div><h1 className='text-2xl font-semibold tracking-tight'>Minha Meta de Faturamento</h1><p className='text-sm text-muted'>Só o seu faturamento — ninguém mais vê.</p></div>
       </div>

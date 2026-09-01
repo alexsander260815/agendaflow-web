@@ -12,6 +12,7 @@ import {
 } from "@/lib/repositories";
 import { SalaoPainel } from "@/lib/types";
 import { formatarMoeda } from "@/lib/datetime";
+import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 const COR_STATUS: Record<string, string> = {
   ATIVA: "bg-accent/12 text-accent",
@@ -64,7 +65,10 @@ export default function PainelAdminPage() {
   return (
     <div className="mx-auto max-w-3xl p-5 pb-16 md:p-8">
       <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Painel Admin</h1>
+        <div className="flex items-center">
+          <BotaoVoltarInicio />
+          <h1 className="text-2xl font-semibold tracking-tight">Painel Admin</h1>
+        </div>
         <Link
           href="/painel-admin/suporte"
           className="flex items-center gap-1.5 rounded-lg border border-border-subtle px-3 py-2 text-sm transition-colors hover:bg-surface"
