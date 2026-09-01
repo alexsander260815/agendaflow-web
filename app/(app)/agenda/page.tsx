@@ -326,6 +326,13 @@ function handleEscolherData(valor: string) {
     month: "long",
     year: "numeric",
   });
+  // Versão curta pro seletor de dia no topo — a completa (com dia da semana e
+  // ano) era comprida demais no celular e empurrava a seta de próximo dia
+  // pra fora da área visível quando o botão "Hoje" também aparecia.
+  const dataLabelCurta = new Date(dataSelecionada).toLocaleDateString("pt-BR", {
+    day: "numeric",
+    month: "long",
+  });
 
   const horas = Array.from({ length: HORA_FIM - HORA_INICIO }, (_, i) => HORA_INICIO + i);
 
@@ -344,7 +351,7 @@ function handleEscolherData(valor: string) {
           <div className="card-elevated flex min-w-0 flex-1 items-center rounded-2xl border border-border-subtle bg-surface p-1 sm:min-w-[390px]">
             <button aria-label="Dia anterior" onClick={irParaDiaAnterior} className="shrink-0 rounded-xl p-2.5 text-muted transition-colors hover:bg-surface-alt hover:text-foreground"><ChevronLeft size={20} /></button>
             <div className="relative min-w-0 flex-1 py-2 text-center text-sm font-semibold capitalize sm:text-base">
-              <span className="truncate">{dataLabel}</span>
+              <span className="truncate">{dataLabelCurta}</span>
               <input type="date" value={dataParaInput(dataSelecionada)} onChange={(e) => handleEscolherData(e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label="Escolher data" />
             </div>
             <button aria-label="Próximo dia" onClick={irParaProximoDia} className="shrink-0 rounded-xl p-2.5 text-muted transition-colors hover:bg-surface-alt hover:text-foreground"><ChevronRight size={20} /></button>
