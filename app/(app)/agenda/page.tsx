@@ -326,13 +326,17 @@ function handleEscolherData(valor: string) {
     month: "long",
     year: "numeric",
   });
-  // Versão curta pro seletor de dia no topo — a completa (com dia da semana e
-  // ano) era comprida demais no celular e empurrava a seta de próximo dia
-  // pra fora da área visível quando o botão "Hoje" também aparecia.
-  const dataLabelCurta = new Date(dataSelecionada).toLocaleDateString("pt-BR", {
+  // Versão curta pro seletor de dia no topo — a completa (com ano) era
+  // comprida demais no celular e empurrava a seta de próximo dia pra fora da
+  // área visível quando o botão "Hoje" também aparecia. Mantém o dia da
+  // semana (sem "-feira" e sem o ano) pra não perder a referência rápida.
+  const diaSemanaCurto = new Date(dataSelecionada)
+    .toLocaleDateString("pt-BR", { weekday: "long" })
+    .replace(/-feira$/, "");
+  const dataLabelCurta = `${new Date(dataSelecionada).toLocaleDateString("pt-BR", {
     day: "numeric",
     month: "long",
-  });
+  })} ${diaSemanaCurto}`;
 
   const horas = Array.from({ length: HORA_FIM - HORA_INICIO }, (_, i) => HORA_INICIO + i);
 
