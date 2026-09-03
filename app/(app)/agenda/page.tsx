@@ -48,7 +48,7 @@ interface BlocoBloqueio {
 const CORES_STATUS: Record<string, string> = {
   AGENDADO: "#eab308",
   CONFIRMADO: "var(--success)",
-  CONCLUIDO: "var(--finalizado)",
+  CONCLUIDO: "var(--info)",
   FALTOU: "var(--warning)",
   CANCELADO: "var(--danger)",
 };
