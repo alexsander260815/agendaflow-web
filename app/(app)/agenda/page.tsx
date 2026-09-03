@@ -46,7 +46,7 @@ interface BlocoBloqueio {
 // (STATUS_ESTILO em agenda/[id]/page.tsx) \u2014 a cor do bloco na grade precisa
 // bater com a cor mostrada l\u00e1, sen\u00e3o parece que s\u00e3o coisas diferentes.
 const CORES_STATUS: Record<string, string> = {
-  AGENDADO: "var(--info)",
+  AGENDADO: "#eab308",
   CONFIRMADO: "var(--success)",
   CONCLUIDO: "var(--finalizado)",
   FALTOU: "var(--warning)",
