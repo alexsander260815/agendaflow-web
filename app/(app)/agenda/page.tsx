@@ -17,7 +17,7 @@ import {
 import { profissionaisVisiveisAgenda } from "@/lib/permissoes";
 import Avatar from "@/components/Avatar";
 import { Agendamento, AgendamentoServico, BloqueioAgenda, HorarioFuncionamento, Perfil } from "@/lib/types";
-import { converterIsoParaMillis, inicioDoDia } from "@/lib/datetime";
+import { converterIsoParaMillis, formatarStatus, inicioDoDia } from "@/lib/datetime";
 import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
 const HORA_INICIO = 7;
@@ -42,18 +42,19 @@ interface BlocoBloqueio {
   duracaoMinutos: number;
 }
 
-const CORES_SERVICO = ["#a855f7", "#ec4899", "#f59e0b", "#3b82f6", "#14b8a6", "#22c55e", "#f97316"];
+// Mesma paleta de status j\u00e1 usada na tela de detalhe do agendamento
+// (STATUS_ESTILO em agenda/[id]/page.tsx) \u2014 a cor do bloco na grade precisa
+// bater com a cor mostrada l\u00e1, sen\u00e3o parece que s\u00e3o coisas diferentes.
+const CORES_STATUS: Record<string, string> = {
+  AGENDADO: "var(--info)",
+  CONFIRMADO: "var(--success)",
+  CONCLUIDO: "var(--finalizado)",
+  FALTOU: "var(--warning)",
+  CANCELADO: "var(--danger)",
+};
 
-function corDoServico(nome: string): string {
-  const normalizado = nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  if (normalizado.includes("manicure") || normalizado.includes("unha") || normalizado.includes("esmalta")) return "#ec4899";
-  if (normalizado.includes("progressiva") || normalizado.includes("alisa")) return "#f59e0b";
-  if (normalizado.includes("massagem") || normalizado.includes("drenagem")) return "#3b82f6";
-  if (normalizado.includes("hidrata")) return "#14b8a6";
-  if (normalizado.includes("corte")) return "#a855f7";
-  let hash = 0;
-  for (const caractere of normalizado) hash = (hash * 31 + caractere.charCodeAt(0)) >>> 0;
-  return CORES_SERVICO[hash % CORES_SERVICO.length];
+function corDoStatus(status: string): string {
+  return CORES_STATUS[status] ?? CORES_STATUS.AGENDADO;
 }
 
 function distribuirConflitos(blocos: Omit<BlocoAgenda, "coluna" | "totalColunas">[]): BlocoAgenda[] {
@@ -451,7 +452,7 @@ function handleEscolherData(valor: string) {
           {blocosDoDia.map((b) => {
             const top = ((b.inicioMinutosDoDia - HORA_INICIO * 60) / 60) * PX_POR_HORA;
             const altura = Math.max(38, (b.duracaoMinutos / 60) * PX_POR_HORA - 5);
-            const cor = b.status === "CANCELADO" ? "#ef4444" : b.status === "FALTOU" ? "#f59e0b" : corDoServico(b.nomesServicos);
+            const cor = corDoStatus(b.status);
             const percentualColuna = 100 / b.totalColunas;
             const esquerda = `calc(72px + ${b.coluna * percentualColuna}% - ${(b.coluna * 84) / b.totalColunas}px)`;
             const largura = `calc(${percentualColuna}% - ${84 / b.totalColunas + 6}px)`;
@@ -480,12 +481,8 @@ function handleEscolherData(valor: string) {
                   </div>
                   <MoreVertical size={14} className="shrink-0 text-muted" />
                 </div>
-                {b.duracaoMinutos > 30 && <p className="truncate text-muted">
-                  {b.status === "FALTOU"
-                    ? `Faltou · ${b.nomesServicos}`
-                    : b.status === "CANCELADO"
-                      ? `Cancelado · ${b.nomesServicos}`
-                      : b.nomesServicos}
+                {b.duracaoMinutos > 30 && <p className="truncate" style={{ color: cor }}>
+                  {b.nomesServicos ? `${formatarStatus(b.status)} · ${b.nomesServicos}` : formatarStatus(b.status)}
                 </p>}
               </button>
             );
