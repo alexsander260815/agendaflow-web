@@ -21,6 +21,9 @@ export const TEMAS_VISUAIS: TemaVisual[] = [
   { id: 'petroleo_coral', nome: 'Petróleo & Coral', descricao: 'Contemporâneo e vibrante', cores: ['#102328', '#28525c', '#ff806b'], novo: true },
   { id: 'neon_cyber', nome: 'Neon Cyber', descricao: 'Rosa, ciano e roxo elétrico', cores: ['#0a0014', '#b026ff', '#ff2e9e'], novo: true },
   { id: 'neon_lima', nome: 'Neon Lima', descricao: 'Verde-limão vibrante com pink', cores: ['#0a0f00', '#ff3ec9', '#ccff00'], novo: true },
+  { id: 'preto_dourado', nome: 'Preto & Dourado', descricao: 'Luxuoso e sofisticado — visual premium', cores: ['#0a0a0a', '#201e19', '#e8c468'], novo: true },
+  { id: 'azul_dourado', nome: 'Azul & Dourado', descricao: 'Elegante e imponente — realeza com sofisticação', cores: ['#0b121f', '#1d2c42', '#d4af37'], novo: true },
+  { id: 'azul_classico', nome: 'Azul Clássico', descricao: 'Simples e direto — o azul mais usado em apps de agenda', cores: ['#0f1729', '#22304a', '#4285f4'], novo: true },
 ];
 
 export function aplicarTemaVisual(tema?: string | null): void {
