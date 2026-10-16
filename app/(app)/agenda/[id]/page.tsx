@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
@@ -53,6 +53,7 @@ import { criarRetornoCliente, listarBloqueiosAgenda } from "@/lib/repositories";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { Agendamento, AgendamentoServico, Cliente, ClientePacote, ItemComanda, Perfil, Produto, ProdutoComanda, Salao, Servico } from "@/lib/types";
 import { converterIsoParaMillis, converterMillisParaIso, formatarMoeda, formatarStatus } from "@/lib/datetime";
+import { concluirComandaGravando, gravarItensEProdutos, mensagemDeErro, type RepositorioComanda } from "@/lib/comandaFluxo";
 import { abrirWhatsApp } from "@/lib/whatsapp";
 import { montarPixCopiaECola } from "@/lib/pix";
 import { mensagemEfetiva, mensagemPadraoConfirmacao, substituirMarcadores } from "@/lib/mensagens";
@@ -60,6 +61,15 @@ import Avatar from "@/components/Avatar";
 
 const inputClass =
   "flex items-center gap-2.5 rounded-xl border border-border-subtle bg-surface px-4 py-3 transition-colors focus-within:border-accent";
+
+// Acesso ao banco usado pelas regras de gravação/conclusão da comanda (lib/comandaFluxo.ts, coberto por testes).
+const repositorioComanda: RepositorioComanda = {
+  buscarStatus: async (id) => (await buscarAgendamento(id))?.status ?? null,
+  salvarItens: salvarItensComanda,
+  salvarProdutos: salvarProdutosDaComanda,
+  listarProdutos: listarProdutosDaComanda,
+  concluirVenda: concluirVendaProdutos,
+};
 
 const STATUS_ESTILO: Record<string, string> = {
   AGENDADO: "bg-info/12 text-info",
@@ -147,6 +157,15 @@ function AgendamentoFormInner() {
   const [mensagemRecorrencia, setMensagemRecorrencia] = useState<string | null>(null);
   const [excluindoSerie, setExcluindoSerie] = useState(false);
   const [mensagemErroSalvar, setMensagemErroSalvar] = useState<string | null>(null);
+  // Ao editar, a comanda só vale como "carregada" depois que serviços e produtos foram lidos com sucesso. Enquanto não,
+  // a tela mostra "Carregando..." (ou o erro) em vez de "Nenhum serviço", e Salvar/Concluir ficam bloqueados — assim uma
+  // falha de leitura nunca vira uma gravação por cima da comanda real.
+  const [comandaCarregada, setComandaCarregada] = useState(!editando);
+  const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
+  const salvandoRef = useRef(false);
+  const concluindoRef = useRef(false);
+  const idNovoRef = useRef<string | null>(null);
+  const agendamentoGravadoRef = useRef(false);
 
   async function handleGerarCobrancaPix() {
     if (!agendamentoAtual?.id || !clienteSelecionado) return;
@@ -246,20 +265,26 @@ function AgendamentoFormInner() {
   }
 
   async function carregarAgendamento(id: string) {
-    const ag = await buscarAgendamento(id);
-    setAgendamentoAtual(ag);
-    if (ag) {
+    setErroCarregamento(null);
+    try {
+      const ag = await buscarAgendamento(id);
+      setAgendamentoAtual(ag);
+      if (!ag) {
+        setComandaCarregada(false);
+        setErroCarregamento("Atendimento não encontrado (ele pode ter sido excluído ou você não tem acesso a ele).");
+        return;
+      }
       setProfissionalSelecionadoId(ag.profissional_id);
       const d = new Date(converterIsoParaMillis(ag.data_hora));
       setDataSelecionada(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
       setHoraSelecionada(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
       setObservacoes(ag.observacoes);
       setDuracaoManual(ag.duracao_minutos ?? null);
-      if (ag.cliente_id) {
-        await carregarPacotesDoCliente(ag.cliente_id);
-      }
-      const itens = await listarItensPorAgendamento(id);
-      const produtosSalvos = await listarProdutosDaComanda(id);
+      // Pacotes do cliente são só um complemento (marcam "incluso no pacote"): se falharem, a comanda ainda carrega.
+      const pacotes = ag.cliente_id ? carregarPacotesDoCliente(ag.cliente_id).catch(() => undefined) : Promise.resolve();
+      // Serviços e produtos são lidos juntos; se QUALQUER um falhar, a comanda NÃO é dada como carregada.
+      const [itens, produtosSalvos] = await Promise.all([listarItensPorAgendamento(id), listarProdutosDaComanda(id)]);
+      await pacotes;
       setProdutosComanda(produtosSalvos);
       setItensComanda(
         itens.map((item) => ({
@@ -279,6 +304,10 @@ function AgendamentoFormInner() {
           comissaoFechada: item.comissao_fechada,
         }))
       );
+      setComandaCarregada(true);
+    } catch (e) {
+      setComandaCarregada(false);
+      setErroCarregamento(`Não foi possível carregar os serviços e produtos desta comanda: ${mensagemDeErro(e)}`);
     }
   }
 
@@ -496,8 +525,25 @@ function AgendamentoFormInner() {
     return d.getTime();
   }
 
+  function montarItensParaSalvar(agendamentoIdDestino: string, salaoId: string): AgendamentoServico[] {
+    return itensComanda.map((item) => ({
+      id: crypto.randomUUID(),
+      salao_id: salaoId,
+      agendamento_id: agendamentoIdDestino,
+      servico_id: item.servico.id,
+      nome_servico: item.servico.nome,
+      preco: item.precoCobrado,
+      cliente_pacote_id: item.clientePacoteId,
+      pacote_descontado: item.pacoteDescontado,
+      comissao_fechada: item.comissaoFechada,
+    }));
+  }
+
   async function handleSalvar(ignorarConflito = false) {
     if (!perfil || !clienteSelecionado || itensComanda.length === 0) return;
+    if (editando && !comandaCarregada) return; // nunca grava por cima de uma comanda que não foi lida
+    if (salvandoRef.current) return; // duplo toque
+    salvandoRef.current = true;
     setSalvando(true);
     setMensagemErroSalvar(null);
     try {
@@ -513,13 +559,16 @@ function AgendamentoFormInner() {
       const dataHoraMillisBase = calcularDataHoraMillis();
       const dataHoraIso = converterMillisParaIso(dataHoraMillisBase);
       const profissionalFinal = usuarioEProfissional ? perfil.id : profissionalSelecionadoId;
-      const id = agendamentoId ?? crypto.randomUUID();
+      // Em agendamento NOVO, o id é gerado uma única vez: se algo falhar depois de criar o agendamento e o usuário tocar em
+      // Salvar de novo, o mesmo agendamento é completado em vez de nascer um segundo (duplicado).
+      if (!agendamentoId && !idNovoRef.current) idNovoRef.current = crypto.randomUUID();
+      const id = (agendamentoId ?? idNovoRef.current) as string;
       const quantidadeSerie = Math.min(24, Math.max(1, parseInt(quantidadeRepeticoes, 10) || 1));
       const recorrenciaId = !editando && repetir && quantidadeSerie > 1 ? crypto.randomUUID() : null;
 
-      if (editando && agendamentoId) {
-        await atualizarAgendamento(agendamentoId, {
-          id: agendamentoId,
+      if ((editando && agendamentoId) || agendamentoGravadoRef.current) {
+        await atualizarAgendamento(id, {
+          id,
           salao_id: perfil.salao_id,
           cliente_id: clienteSelecionado.id,
           profissional_id: profissionalFinal,
@@ -528,7 +577,7 @@ function AgendamentoFormInner() {
           observacoes,
           forma_pagamento: agendamentoAtual?.forma_pagamento ?? null,
           duracao_minutos: duracaoManual,
-          recorrencia_id: agendamentoAtual?.recorrencia_id ?? null,
+          recorrencia_id: editando ? (agendamentoAtual?.recorrencia_id ?? null) : recorrenciaId,
         });
       } else {
         await salvarAgendamentoRepo({
@@ -543,33 +592,17 @@ function AgendamentoFormInner() {
           forma_pagamento: null,
           recorrencia_id: recorrenciaId,
         });
+        agendamentoGravadoRef.current = true;
       }
 
-      const itensParaSalvar: AgendamentoServico[] = itensComanda.map((item) => ({
-        id: crypto.randomUUID(),
-        salao_id: perfil.salao_id,
-        agendamento_id: id,
-        servico_id: item.servico.id,
-        nome_servico: item.servico.nome,
-        preco: item.precoCobrado,
-        cliente_pacote_id: item.clientePacoteId,
-        pacote_descontado: item.pacoteDescontado,
-        comissao_fechada: item.comissaoFechada,
-      }));
-      await salvarItensComanda(id, itensParaSalvar);
-      await salvarProdutosDaComanda(
-        id,
-        perfil.salao_id,
-        produtosComanda
-          .filter((produto) => !produto.estoque_baixado)
-          .map(({ produto_id, nome_produto, preco_unitario, quantidade, criado_em }) => ({
-            produto_id,
-            nome_produto,
-            preco_unitario,
-            quantidade,
-            criado_em,
-          }))
-      );
+      const itensParaSalvar = montarItensParaSalvar(id, perfil.salao_id);
+      // Grava serviços e produtos e CONFERE (lê de volta) que os produtos ficaram gravados.
+      await gravarItensEProdutos(repositorioComanda, {
+        agendamentoId: id,
+        salaoId: perfil.salao_id,
+        itens: itensParaSalvar,
+        produtos: produtosComanda,
+      });
 
       if (editando && agendamentoId) {
         registrarAuditoria(perfil.salao_id, perfil.id, "editar_comanda", "agendamento", agendamentoId, null, {
@@ -632,28 +665,57 @@ function AgendamentoFormInner() {
 
       voltarParaAgenda();
     } catch (e) {
-      setMensagemErroSalvar(e instanceof Error ? e.message : "Não foi possível salvar o agendamento.");
+      const base = mensagemDeErro(e, "Não foi possível salvar o agendamento.");
+      setMensagemErroSalvar(
+        !editando && agendamentoGravadoRef.current
+          ? `${base} O agendamento já foi criado; toque em Salvar de novo para completar (ele não será duplicado).`
+          : base
+      );
     } finally {
+      salvandoRef.current = false;
       setSalvando(false);
     }
   }
 
   async function handleMarcarConcluido(formaPagamento: string) {
     if (!agendamentoAtual || !agendamentoId || !perfil) return;
+    if (!comandaCarregada) {
+      setMensagemErroConcluir("A comanda ainda não foi carregada. Atualize a página e tente de novo; nada foi alterado.");
+      return;
+    }
+    if (concluindoRef.current) return; // duplo toque
+    concluindoRef.current = true;
     setConcluindo(true);
     setMensagemErroConcluir(null);
     try {
-      await concluirVendaProdutos(agendamentoId, formaPagamento);
+      // 1) grava serviços e produtos que estão na tela, 2) CONFERE que foram gravados, 3) só então baixa o estoque e conclui
+      //    (função do banco: atômica; não baixa duas vezes). Se algo falhar aqui, o atendimento NÃO é concluído.
+      await concluirComandaGravando(
+        repositorioComanda,
+        {
+          agendamentoId,
+          salaoId: perfil.salao_id,
+          itens: montarItensParaSalvar(agendamentoId, perfil.salao_id),
+          produtos: produtosComanda,
+        },
+        formaPagamento
+      );
 
       const itens = await listarItensPorAgendamento(agendamentoId);
-      for (const item of itens) {
-        if (item.cliente_pacote_id && !item.pacote_descontado) {
-          const pacote = await buscarClientePacote(item.cliente_pacote_id);
-          if (pacote && pacote.quantidade_restante > 0) {
-            await atualizarQuantidadeClientePacote(item.cliente_pacote_id, pacote.quantidade_restante - 1);
-            await marcarComoDescontado(item.id);
+      try {
+        for (const item of itens) {
+          if (item.cliente_pacote_id && !item.pacote_descontado) {
+            const pacote = await buscarClientePacote(item.cliente_pacote_id);
+            if (pacote && pacote.quantidade_restante > 0) {
+              await atualizarQuantidadeClientePacote(item.cliente_pacote_id, pacote.quantidade_restante - 1);
+              await marcarComoDescontado(item.id);
+            }
           }
         }
+      } catch (e) {
+        throw new Error(
+          `O atendimento foi concluído e o estoque baixado, mas não foi possível descontar a sessão do pacote: ${mensagemDeErro(e)}. Toque em concluir de novo para tentar só o desconto do pacote.`
+        );
       }
 
       const dias = parseInt(diasParaRetorno, 10);
@@ -677,8 +739,9 @@ function AgendamentoFormInner() {
       setMostrarPagamento(false);
       voltarParaAgenda();
     } catch (e) {
-      setMensagemErroConcluir(e instanceof Error ? e.message : "Não foi possível concluir o atendimento.");
+      setMensagemErroConcluir(mensagemDeErro(e, "Não foi possível concluir o atendimento."));
     } finally {
+      concluindoRef.current = false;
       setConcluindo(false);
     }
   }
@@ -817,7 +880,7 @@ function AgendamentoFormInner() {
     }
   }
 
-  const podeSalvar = clienteSelecionado !== null && itensComanda.length > 0;
+  const podeSalvar = clienteSelecionado !== null && itensComanda.length > 0 && comandaCarregada;
   const profissionalSelecionado = equipe.find((profissional) => profissional.id === profissionalSelecionadoId) ?? null;
 
   return (
@@ -967,7 +1030,20 @@ function AgendamentoFormInner() {
           <p className="font-medium">Serviços da comanda</p>
         </div>
 
-        {itensComanda.length === 0 ? (
+        {editando && erroCarregamento ? (
+          <div className="flex flex-col gap-2 rounded-xl bg-danger/10 p-3.5 text-sm text-danger">
+            <p>{erroCarregamento}</p>
+            <p className="text-xs">Nada foi alterado. Enquanto isso, Salvar e Concluir ficam bloqueados para não gravar por cima da comanda.</p>
+            <button
+              onClick={() => agendamentoId && void carregarAgendamento(agendamentoId)}
+              className="self-start rounded-lg bg-danger px-3 py-1.5 text-xs font-medium text-white"
+            >
+              Tentar de novo
+            </button>
+          </div>
+        ) : editando && !comandaCarregada ? (
+          <p className="text-sm text-muted">Carregando a comanda…</p>
+        ) : itensComanda.length === 0 ? (
           <p className="text-sm text-muted">Nenhum serviço adicionado ainda.</p>
         ) : (
           <div className="flex flex-col gap-2">
@@ -1031,7 +1107,9 @@ function AgendamentoFormInner() {
           <p className="font-medium">Produtos da comanda</p>
         </div>
 
-        {produtosComanda.length === 0 ? (
+        {editando && !comandaCarregada ? (
+          <p className="text-sm text-muted">{erroCarregamento ? "Não carregado (veja o aviso acima)." : "Carregando a comanda…"}</p>
+        ) : produtosComanda.length === 0 ? (
           <p className="text-sm text-muted">Nenhum produto adicionado.</p>
         ) : (
           <div className="flex flex-col gap-2">
@@ -1065,7 +1143,7 @@ function AgendamentoFormInner() {
 
         <button
           onClick={() => setMostrarSeletorProduto(true)}
-          disabled={agendamentoAtual?.status === "CONCLUIDO"}
+          disabled={agendamentoAtual?.status === "CONCLUIDO" || (editando && !comandaCarregada)}
           className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-accent/45 px-4 py-2.5 text-sm text-accent transition-colors hover:bg-accent/5 disabled:hidden"
         >
           <Plus size={15} /> Adicionar Produto
@@ -1160,7 +1238,7 @@ function AgendamentoFormInner() {
                     setMensagemErroConcluir(null);
                     setMostrarPagamento(true);
                   }}
-                  disabled={alterandoStatus}
+                  disabled={alterandoStatus || !comandaCarregada}
                   className="flex items-center justify-center gap-1.5 rounded-xl bg-finalizado px-4 py-3 font-medium text-finalizado-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
                 >
                   <Check size={16} /> Marcar como Concluído
