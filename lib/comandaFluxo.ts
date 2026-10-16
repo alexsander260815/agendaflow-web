@@ -11,7 +11,11 @@ export type EtapaErroComanda =
   | "salvar_itens"
   | "salvar_produtos"
   | "confirmar_produtos"
-  | "concluir_venda";
+  | "concluir_venda"
+  | "tela_desatualizada"
+  | "verificar_tela"
+  | "verificar_estorno"
+  | "estornar";
 
 export class ErroComanda extends Error {
   etapa: EtapaErroComanda;
@@ -30,6 +34,9 @@ export interface RepositorioComanda {
   salvarProdutos(agendamentoId: string, salaoId: string, produtos: NovoProdutoComanda[]): Promise<void>;
   listarProdutos(agendamentoId: string): Promise<ProdutoComanda[]>;
   concluirVenda(agendamentoId: string, formaPagamento: string): Promise<void>;
+  listarItens(agendamentoId: string): Promise<AgendamentoServico[]>;
+  /** estornar_comanda (banco): devolve estoque dos produtos vendidos e sessões de pacote já descontadas. Só age sobre o que está marcado como feito; repetir não devolve em dobro. */
+  estornar(agendamentoId: string): Promise<void>;
 }
 
 export interface DadosComanda {
@@ -101,11 +108,75 @@ function somaPorProduto(linhas: { produto_id: string; quantidade: number }[]): M
   return mapa;
 }
 
+const MSG_TELA_DESATUALIZADA =
+  "Esta comanda mudou depois que você a abriu (foi concluída, reaberta ou estornada). Atualizamos a tela com o estado real; confira e tente de novo. Nada foi alterado.";
+
+/**
+ * Antes de gravar, compara a TELA com o BANCO. Se a tela estiver desatualizada, não grava nada.
+ * Sem isso, depois de "Reabrir" (que devolve o estoque e zera `estoque_baixado` no banco) a tela ainda mostrava o produto como
+ * "Vendido"; ao salvar/concluir, o produto — que a tela considerava "já vendido" e por isso não reenviava — era APAGADO da comanda
+ * pelo "troca as linhas pendentes", e o atendimento concluía sem produto e sem baixar o estoque.
+ */
+async function verificarTelaAtualizada(repo: RepositorioComanda, dados: DadosComanda): Promise<void> {
+  let status: string | null;
+  let doBanco: ProdutoComanda[];
+  try {
+    [status, doBanco] = await Promise.all([repo.buscarStatus(dados.agendamentoId), repo.listarProdutos(dados.agendamentoId)]);
+  } catch (e) {
+    throw new ErroComanda("verificar_tela", `Não foi possível conferir o estado atual da comanda: ${mensagemDeErro(e)}. Nada foi alterado.`);
+  }
+  const vendidasNoBanco = new Set(doBanco.filter((p) => p.estoque_baixado).map((p) => p.id));
+  const telaDizVendidaMasBancoNao = dados.produtos.some((p) => p.estoque_baixado && !vendidasNoBanco.has(p.id));
+  const telaDizPendenteMasBancoVendeu = dados.produtos.some((p) => !p.estoque_baixado && vendidasNoBanco.has(p.id));
+  const haProdutosNovos = dados.produtos.some((p) => !p.estoque_baixado);
+  const jaConcluidoNoBanco = status === "CONCLUIDO" && haProdutosNovos;
+  if (telaDizVendidaMasBancoNao || telaDizPendenteMasBancoVendeu || jaConcluidoNoBanco) {
+    throw new ErroComanda("tela_desatualizada", MSG_TELA_DESATUALIZADA);
+  }
+}
+
+/**
+ * Decide pelo BANCO (não pela tela) se há o que estornar e, se houver, chama o estorno (função do banco: atômica e idempotente).
+ * Há o que estornar quando: o atendimento está CONCLUIDO no banco, OU existe produto marcado como vendido, OU existe item com sessão
+ * de pacote descontada. Usado antes de Reabrir, Cancelar, Marcar Falta e Excluir. Se não conseguir verificar ou estornar, LANÇA erro
+ * e quem chamou NÃO deve mudar o status nem excluir. Repetir é seguro: o banco só devolve o que ainda está marcado como feito.
+ */
+export async function estornarSeNecessario(repo: RepositorioComanda, agendamentoId: string): Promise<{ estornou: boolean }> {
+  let precisa: boolean;
+  try {
+    const [status, produtos, itens] = await Promise.all([
+      repo.buscarStatus(agendamentoId),
+      repo.listarProdutos(agendamentoId),
+      repo.listarItens(agendamentoId),
+    ]);
+    precisa =
+      status === "CONCLUIDO" ||
+      produtos.some((p) => p.estoque_baixado) ||
+      itens.some((i) => i.pacote_descontado && i.cliente_pacote_id !== null);
+  } catch (e) {
+    throw new ErroComanda(
+      "verificar_estorno",
+      `Não foi possível conferir se há estoque ou pacote a devolver: ${mensagemDeErro(e)}. Nada foi alterado.`
+    );
+  }
+  if (!precisa) return { estornou: false };
+  try {
+    await repo.estornar(agendamentoId);
+  } catch (e) {
+    throw new ErroComanda(
+      "estornar",
+      `Não foi possível devolver o estoque e as sessões de pacote: ${mensagemDeErro(e)}. Nada foi alterado e o status continua o mesmo.`
+    );
+  }
+  return { estornou: true };
+}
+
 /** Grava serviços e produtos AINDA NÃO vendidos e confere, lendo de volta, que os produtos foram mesmo gravados. */
 export async function gravarItensEProdutos(repo: RepositorioComanda, dados: DadosComanda): Promise<void> {
   if (dados.itens.length === 0) {
     throw new ErroComanda("sem_itens", "Adicione ao menos um serviço antes de salvar.");
   }
+  await verificarTelaAtualizada(repo, dados);
   try {
     await repo.salvarItens(dados.agendamentoId, dados.itens);
   } catch (e) {

@@ -53,7 +53,14 @@ import { criarRetornoCliente, listarBloqueiosAgenda } from "@/lib/repositories";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { Agendamento, AgendamentoServico, Cliente, ClientePacote, ItemComanda, Perfil, Produto, ProdutoComanda, Salao, Servico } from "@/lib/types";
 import { converterIsoParaMillis, converterMillisParaIso, formatarMoeda, formatarStatus } from "@/lib/datetime";
-import { concluirComandaGravando, gravarItensEProdutos, mensagemDeErro, type RepositorioComanda } from "@/lib/comandaFluxo";
+import {
+  concluirComandaGravando,
+  ErroComanda,
+  estornarSeNecessario,
+  gravarItensEProdutos,
+  mensagemDeErro,
+  type RepositorioComanda,
+} from "@/lib/comandaFluxo";
 import { abrirWhatsApp } from "@/lib/whatsapp";
 import { montarPixCopiaECola } from "@/lib/pix";
 import { mensagemEfetiva, mensagemPadraoConfirmacao, substituirMarcadores } from "@/lib/mensagens";
@@ -69,6 +76,8 @@ const repositorioComanda: RepositorioComanda = {
   salvarProdutos: salvarProdutosDaComanda,
   listarProdutos: listarProdutosDaComanda,
   concluirVenda: concluirVendaProdutos,
+  listarItens: listarItensPorAgendamento,
+  estornar: estornarComanda,
 };
 
 const STATUS_ESTILO: Record<string, string> = {
@@ -164,6 +173,7 @@ function AgendamentoFormInner() {
   const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
   const salvandoRef = useRef(false);
   const concluindoRef = useRef(false);
+  const statusRef = useRef(false); // trava de duplo toque em Reabrir / Cancelar / Falta / Excluir
   const idNovoRef = useRef<string | null>(null);
   const agendamentoGravadoRef = useRef(false);
 
@@ -665,6 +675,8 @@ function AgendamentoFormInner() {
 
       voltarParaAgenda();
     } catch (e) {
+      // Tela desatualizada (comanda concluída/reaberta/estornada em outro lugar): recarrega do banco em vez de gravar por cima.
+      if (e instanceof ErroComanda && e.etapa === "tela_desatualizada" && agendamentoId) void carregarAgendamento(agendamentoId);
       const base = mensagemDeErro(e, "Não foi possível salvar o agendamento.");
       setMensagemErroSalvar(
         !editando && agendamentoGravadoRef.current
@@ -739,6 +751,7 @@ function AgendamentoFormInner() {
       setMostrarPagamento(false);
       voltarParaAgenda();
     } catch (e) {
+      if (e instanceof ErroComanda && e.etapa === "tela_desatualizada" && agendamentoId) void carregarAgendamento(agendamentoId);
       setMensagemErroConcluir(mensagemDeErro(e, "Não foi possível concluir o atendimento."));
     } finally {
       concluindoRef.current = false;
@@ -761,23 +774,45 @@ function AgendamentoFormInner() {
   // está sendo cancelada, marcada como falta, ou reaberta, devolve tudo que
   // tinha sido descontado — senão cancelar ou reabrir uma comanda concluída
   // perdia estoque e sessão de pacote pra sempre (o Android já trata isso).
-  async function estornarSeConcluida() {
-    if (agendamentoAtual?.status === "CONCLUIDO" && agendamentoId) {
-      await estornarComanda(agendamentoId);
-    }
+  //
+  // A decisão de estornar vem do BANCO (status real + produtos marcados como vendidos + pacotes descontados), nunca do que a tela
+  // acha que é o status. O estorno é atômico e idempotente (só devolve o que ainda está marcado como feito), então repetir é seguro.
+  async function estornarSeConcluida(): Promise<boolean> {
+    if (!agendamentoId) return false;
+    return (await estornarSeNecessario(repositorioComanda, agendamentoId)).estornou;
+  }
+
+  // Muda o status partindo da linha ATUAL do banco (não do objeto antigo da tela, que poderia gravar dados desatualizados).
+  async function mudarStatusDoBanco(novoStatus: Agendamento["status"]) {
+    if (!agendamentoId) return;
+    const atual = await buscarAgendamento(agendamentoId);
+    if (!atual) throw new Error("Atendimento não encontrado (talvez já tenha sido excluído). Nada foi alterado.");
+    await atualizarAgendamento(agendamentoId, { ...atual, status: novoStatus });
+  }
+
+  // Se o estorno já foi feito mas o passo seguinte falhou, o usuário precisa saber (e que tentar de novo não devolve em dobro).
+  function mensagemDeStatus(e: unknown, estornou: boolean, padrao: string): string {
+    const base = mensagemDeErro(e, padrao);
+    return estornou
+      ? `${base} Atenção: o estoque e as sessões de pacote JÁ foram devolvidos; tentar de novo não devolve em dobro.`
+      : base;
   }
 
   async function handleMarcarFalta() {
-    if (!agendamentoAtual || !agendamentoId) return;
+    if (!agendamentoId || statusRef.current) return;
+    statusRef.current = true;
     setAlterandoStatus(true);
     setMensagemErroStatus(null);
+    let estornou = false;
     try {
-      await estornarSeConcluida();
-      await atualizarAgendamento(agendamentoId, { ...agendamentoAtual, status: "FALTOU" });
+      estornou = await estornarSeConcluida();
+      await mudarStatusDoBanco("FALTOU");
       voltarParaAgenda();
     } catch (e) {
-      setMensagemErroStatus(e instanceof Error ? e.message : "Não foi possível marcar como falta.");
+      setMensagemErroStatus(mensagemDeStatus(e, estornou, "Não foi possível marcar como falta."));
+      if (estornou) void carregarAgendamento(agendamentoId); // mostra o estado real do banco
     } finally {
+      statusRef.current = false;
       setAlterandoStatus(false);
     }
   }
@@ -789,50 +824,55 @@ function AgendamentoFormInner() {
   }
 
   async function handleMarcarCancelado() {
-    if (!agendamentoAtual || !agendamentoId) return;
+    if (!agendamentoId || statusRef.current) return;
+    statusRef.current = true;
     setAlterandoStatus(true);
     setMensagemErroStatus(null);
+    let estornou = false;
     try {
-      await estornarSeConcluida();
-      await atualizarAgendamento(agendamentoId, { ...agendamentoAtual, status: "CANCELADO" });
+      estornou = await estornarSeConcluida();
+      await mudarStatusDoBanco("CANCELADO");
       voltarParaAgenda();
     } catch (e) {
-      setMensagemErroStatus(e instanceof Error ? e.message : "Não foi possível cancelar o agendamento.");
+      setMensagemErroStatus(mensagemDeStatus(e, estornou, "Não foi possível cancelar o agendamento."));
+      if (estornou) void carregarAgendamento(agendamentoId);
     } finally {
+      statusRef.current = false;
       setAlterandoStatus(false);
     }
   }
 
   async function handleReabrir() {
-    if (!agendamentoAtual || !agendamentoId) return;
+    if (!agendamentoId || statusRef.current) return;
+    statusRef.current = true;
     setAlterandoStatus(true);
     setMensagemErroStatus(null);
+    let estornou = false;
     try {
-      const tinhaConcluido = agendamentoAtual.status === "CONCLUIDO";
-      await estornarSeConcluida();
-      await atualizarAgendamento(agendamentoId, { ...agendamentoAtual, status: "AGENDADO" });
-      setAgendamentoAtual({ ...agendamentoAtual, status: "AGENDADO" });
-      // O estorno já resetou pacote_descontado no banco — sem recarregar, o
-      // item em memória ficaria com o valor antigo (true) e sobrescreveria o
-      // banco de volta pra true na próxima vez que a comanda for salva.
-      if (tinhaConcluido) {
-        setItensComanda((atual) =>
-          atual.map((item) => (item.pacoteDescontado ? { ...item, pacoteDescontado: false } : item))
-        );
-      }
+      // 1) devolve estoque/pacote se o BANCO diz que há o que devolver (se falhar, para: o status NÃO muda)
+      estornou = await estornarSeConcluida();
+      // 2) muda o status partindo da linha atual do banco
+      await mudarStatusDoBanco("AGENDADO");
+      // 3) recarrega agendamento, serviços e produtos DO BANCO. Não "remenda" a tela: produtos que estavam como "Vendido" passam a
+      //    ser pendentes (o estorno zerou estoque_baixado) e pacote_descontado também — a tela e o banco voltam a ser a mesma coisa.
+      await carregarAgendamento(agendamentoId);
     } catch (e) {
-      setMensagemErroStatus(e instanceof Error ? e.message : "Não foi possível reabrir o agendamento.");
+      setMensagemErroStatus(mensagemDeStatus(e, estornou, "Não foi possível reabrir o agendamento."));
+      if (estornou) void carregarAgendamento(agendamentoId);
     } finally {
+      statusRef.current = false;
       setAlterandoStatus(false);
     }
   }
 
   async function handleExcluir() {
-    if (!agendamentoId) return;
+    if (!agendamentoId || statusRef.current) return;
+    statusRef.current = true;
     setAlterandoStatus(true);
     setMensagemErroStatus(null);
+    let estornou = false;
     try {
-      await estornarSeConcluida();
+      estornou = await estornarSeConcluida();
       await deletarAgendamentoRepo(agendamentoId);
       if (perfil && agendamentoAtual) {
         registrarAuditoria(perfil.salao_id, perfil.id, "cancelar_agendamento", "agendamento", agendamentoId, {
@@ -845,8 +885,10 @@ function AgendamentoFormInner() {
       voltarParaAgenda();
     } catch (e) {
       setMostrarExclusao(false);
-      setMensagemErroStatus(e instanceof Error ? e.message : "Não foi possível excluir o agendamento.");
+      setMensagemErroStatus(mensagemDeStatus(e, estornou, "Não foi possível excluir o agendamento."));
+      if (estornou) void carregarAgendamento(agendamentoId);
     } finally {
+      statusRef.current = false;
       setAlterandoStatus(false);
     }
   }

@@ -6,12 +6,12 @@
 // Rodar:  node --test lib/comandaFluxo.test.mts
 import test from "node:test";
 import assert from "node:assert/strict";
-import { concluirComandaGravando, gravarItensEProdutos, mensagemDeErro, montarLinhasProdutos, ErroComanda, type RepositorioComanda, type DadosComanda } from "./comandaFluxo.ts";
+import { concluirComandaGravando, estornarSeNecessario, gravarItensEProdutos, mensagemDeErro, montarLinhasProdutos, ErroComanda, type RepositorioComanda, type DadosComanda } from "./comandaFluxo.ts";
 
 type Linha = { id: string; salao_id: string; agendamento_id: string; produto_id: string; nome_produto: string; preco_unitario: number; quantidade: number; estoque_baixado: boolean };
 type Item = { id: string; salao_id: string; agendamento_id: string; servico_id: string; nome_servico: string; preco: number; cliente_pacote_id: string | null; pacote_descontado: boolean; comissao_fechada: boolean };
 
-function criarBanco(opcoes: { saldo?: number; falhaAoSalvarProdutos?: boolean; descartaProdutosSilenciosamente?: boolean; falhaNaLeitura?: boolean; falhaAoSalvarItens?: boolean } = {}) {
+function criarBanco(opcoes: { saldo?: number; falhaAoSalvarProdutos?: boolean; descartaProdutosSilenciosamente?: boolean; falhaNaLeitura?: boolean; falhaAoSalvarItens?: boolean; falhaNoEstorno?: boolean; falhaNaVerificacaoDoEstorno?: boolean } = {}) {
   const b = {
     status: "AGENDADO" as string,
     forma: null as string | null,
@@ -19,7 +19,8 @@ function criarBanco(opcoes: { saldo?: number; falhaAoSalvarProdutos?: boolean; d
     produtos: [] as Linha[],
     saldo: opcoes.saldo ?? 5,
     movimentacoes: [] as { tipo: string; quantidade: number }[],
-    chamadas: { concluirVenda: 0, salvarProdutos: 0, salvarItens: 0 },
+    pacoteRestante: 3,
+    chamadas: { concluirVenda: 0, salvarProdutos: 0, salvarItens: 0, estornar: 0 },
   };
   let seq = 0;
   const repo: RepositorioComanda = {
@@ -39,6 +40,17 @@ function criarBanco(opcoes: { saldo?: number; falhaAoSalvarProdutos?: boolean; d
     async listarProdutos(ag) {
       if (opcoes.falhaNaLeitura) throw { message: "JWT expired" };
       return b.produtos.filter((p) => p.agendamento_id === ag);
+    },
+    async listarItens(ag) {
+      if (opcoes.falhaNaVerificacaoDoEstorno) throw { message: "connection reset" };
+      return b.itens.filter((i) => i.agendamento_id === ag);
+    },
+    async estornar(ag) {
+      b.chamadas.estornar++;
+      if (opcoes.falhaNoEstorno) throw { message: "Acesso negado à comanda" };
+      // imita estornar_comanda (0033): devolve produtos vendidos (ENTRADA) e sessoes de pacote; so age sobre o que esta marcado como feito
+      for (const l of b.produtos.filter((p) => p.agendamento_id === ag && p.estoque_baixado)) { b.saldo += l.quantidade; b.movimentacoes.push({ tipo: "ENTRADA", quantidade: l.quantidade }); l.estoque_baixado = false; }
+      for (const i of b.itens.filter((i) => i.agendamento_id === ag && i.pacote_descontado && i.cliente_pacote_id)) { b.pacoteRestante++; i.pacote_descontado = false; }
     },
     async concluirVenda(ag, forma) {
       b.chamadas.concluirVenda++;
@@ -95,10 +107,18 @@ test("insert que 'passa' sem gravar (silencioso) => a conferência barra antes d
   assert.equal(b.status, "AGENDADO"); assert.equal(b.saldo, 5); assert.equal(b.chamadas.concluirVenda, 0);
 });
 
-test("não consegue ler de volta => não conclui", async () => {
+test("não consegue nem conferir o estado atual (sessão expirada) => para ANTES de gravar qualquer coisa", async () => {
   const { b, repo } = criarBanco({ falhaNaLeitura: true });
+  await assert.rejects(concluirComandaGravando(repo, dados(1), "PIX"), (e: unknown) => e instanceof ErroComanda && e.etapa === "verificar_tela" && /JWT expired/.test(e.message) && /Nada foi alterado/.test(e.message));
+  assert.equal(b.status, "AGENDADO"); assert.equal(b.chamadas.concluirVenda, 0); assert.equal(b.chamadas.salvarItens, 0); assert.equal(b.chamadas.salvarProdutos, 0);
+});
+
+test("grava, mas não consegue ler de volta para conferir => não conclui", async () => {
+  const { b, repo } = criarBanco();
+  let leituras = 0; const original = repo.listarProdutos;
+  repo.listarProdutos = async (ag) => { if (++leituras >= 2) throw { message: "JWT expired" }; return original(ag); }; // 1ª leitura (conferir tela) ok; 2ª (conferir gravação) falha
   await assert.rejects(concluirComandaGravando(repo, dados(1), "PIX"), (e: unknown) => e instanceof ErroComanda && e.etapa === "confirmar_produtos" && /JWT expired/.test(e.message));
-  assert.equal(b.status, "AGENDADO"); assert.equal(b.chamadas.concluirVenda, 0);
+  assert.equal(b.status, "AGENDADO"); assert.equal(b.chamadas.concluirVenda, 0); assert.equal(b.saldo, 5);
 });
 
 test("falha ao gravar serviços => para antes de qualquer produto/baixa", async () => {
@@ -243,4 +263,123 @@ test("outros inserts em lote da comanda: agendamento_servicos traz todas as colu
   for (const c of ["id", "salao_id", "agendamento_id", "servico_id", "nome_servico", "preco", "pacote_descontado", "comissao_fechada"]) {
     assert.ok((item as unknown as Record<string, unknown>)[c] !== undefined && (item as unknown as Record<string, unknown>)[c] !== null, c);
   }
+});
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// REABRIR / CANCELAR / FALTA / EXCLUIR: a decisão de estornar vem do BANCO; depois de reabrir a tela é recarregada do banco;
+// tela desatualizada nunca apaga produto vendido ou estornado; estorno e baixa nunca são duplicados.
+async function recarregarTela(repo, ag = "ag1") {
+  return { produtos: await repo.listarProdutos(ag), itens: await repo.listarItens(ag) };
+}
+function reabrirNoBanco(b) { b.status = "AGENDADO"; } // o site muda o status só DEPOIS de estornar com sucesso
+
+test("REABRIR e CONCLUIR de novo: estoque 5 -> 4 -> 5 -> 4, uma baixa por conclusão, sem duplicar linha", async () => {
+  const { b, repo } = criarBanco();
+  await concluirComandaGravando(repo, dados(1), "PIX");
+  assert.equal(b.saldo, 4);
+  assert.deepEqual(await estornarSeNecessario(repo, "ag1"), { estornou: true });   // Reabrir
+  reabrirNoBanco(b);
+  assert.equal(b.saldo, 5);
+  const tela = await recarregarTela(repo);                                          // a tela é recarregada do banco
+  assert.equal(tela.produtos.length, 1); assert.equal(tela.produtos[0].estoque_baixado, false);
+  assert.equal(await concluirComandaGravando(repo, { agendamentoId: "ag1", salaoId: "s1", itens: tela.itens.length ? tela.itens : dados(0).itens, produtos: tela.produtos }, "CARTAO"), "concluida");
+  assert.equal(b.saldo, 4); assert.equal(b.produtos.length, 1); assert.equal(b.produtos[0].estoque_baixado, true);
+  assert.deepEqual(b.movimentacoes, [{ tipo: "VENDA", quantidade: 1 }, { tipo: "ENTRADA", quantidade: 1 }, { tipo: "VENDA", quantidade: 1 }]);
+});
+
+test("TELA DESATUALIZADA depois de reabrir (mostra 'Vendido', banco já estornou): salvar/concluir é BARRADO e nada é apagado", async () => {
+  const { b, repo } = criarBanco();
+  await concluirComandaGravando(repo, dados(1), "PIX");
+  const telaAntiga = (await repo.listarProdutos("ag1")).map((l) => ({ ...l })); // linha vendida (estoque_baixado=true) como a tela viu
+  await estornarSeNecessario(repo, "ag1"); reabrirNoBanco(b);                    // outra aba/ação reabre: o banco agora tem a linha pendente
+  await assert.rejects(gravarItensEProdutos(repo, { agendamentoId: "ag1", salaoId: "s1", itens: dados(0).itens, produtos: telaAntiga }), (e) => e instanceof ErroComanda && e.etapa === "tela_desatualizada");
+  await assert.rejects(concluirComandaGravando(repo, { agendamentoId: "ag1", salaoId: "s1", itens: dados(0).itens, produtos: telaAntiga }, "PIX"), (e) => e instanceof ErroComanda && e.etapa === "tela_desatualizada");
+  assert.equal(b.produtos.length, 1, "a linha do produto NÃO pode ser apagada"); assert.equal(b.produtos[0].estoque_baixado, false);
+  assert.equal(b.saldo, 5); assert.equal(b.status, "AGENDADO"); assert.equal(b.chamadas.concluirVenda, 1); // só a conclusão original
+});
+
+test("TELA DESATUALIZADA ao contrário (banco concluído em outra aba, tela ainda pendente): não grava segunda linha nem baixa de novo", async () => {
+  const { b, repo } = criarBanco();
+  const telaPendente = dados(1);                                   // aba A abriu a comanda pendente
+  await concluirComandaGravando(repo, dados(1), "PIX");            // aba B concluiu
+  await assert.rejects(gravarItensEProdutos(repo, telaPendente), (e) => e instanceof ErroComanda && e.etapa === "tela_desatualizada");
+  assert.equal(b.produtos.length, 1); assert.equal(b.saldo, 4); assert.equal(b.chamadas.concluirVenda, 1);
+});
+
+test("salvar uma comanda JÁ concluída sem produtos novos continua permitido (editar observação/horário não é bloqueado)", async () => {
+  const { b, repo } = criarBanco();
+  await concluirComandaGravando(repo, dados(1), "PIX");
+  const vendidas = await repo.listarProdutos("ag1");
+  await gravarItensEProdutos(repo, { agendamentoId: "ag1", salaoId: "s1", itens: dados(0).itens, produtos: vendidas });
+  assert.equal(b.produtos.length, 1); assert.equal(b.produtos[0].estoque_baixado, true); assert.equal(b.saldo, 4);
+});
+
+test("estorno é decidido PELO BANCO: CONCLUIDO no banco => estorna, mesmo que a tela tenha outro status", async () => {
+  const { b, repo } = criarBanco();
+  await concluirComandaGravando(repo, dados(1), "PIX");
+  assert.equal((await estornarSeNecessario(repo, "ag1")).estornou, true);
+  assert.equal(b.saldo, 5);
+});
+
+test("AGENDADO no banco, sem produto vendido nem pacote descontado => NÃO chama o estorno", async () => {
+  const { b, repo } = criarBanco();
+  await gravarItensEProdutos(repo, dados(1));
+  assert.deepEqual(await estornarSeNecessario(repo, "ag1"), { estornou: false });
+  assert.equal(b.chamadas.estornar, 0); assert.equal(b.saldo, 5);
+});
+
+test("vazamento antigo (status AGENDADO mas produto ainda marcado como vendido): o estorno corrige e devolve o estoque", async () => {
+  const { b, repo } = criarBanco();
+  await concluirComandaGravando(repo, dados(1), "PIX");
+  b.status = "AGENDADO"; // reaberto só trocando o status (o defeito antigo)
+  assert.equal((await estornarSeNecessario(repo, "ag1")).estornou, true);
+  assert.equal(b.saldo, 5); assert.equal(b.produtos[0].estoque_baixado, false);
+});
+
+test("pacote: sessão descontada é devolvida pelo estorno mesmo sem produto, e uma vez só", async () => {
+  const { b, repo } = criarBanco();
+  b.itens = [{ id: "i1", salao_id: "s1", agendamento_id: "ag1", servico_id: "sv1", nome_servico: "corte", preco: 0, cliente_pacote_id: "pc1", pacote_descontado: true, comissao_fechada: false }];
+  b.pacoteRestante = 2; b.status = "AGENDADO";
+  assert.equal((await estornarSeNecessario(repo, "ag1")).estornou, true);
+  assert.equal(b.pacoteRestante, 3); assert.equal(b.itens[0].pacote_descontado, false);
+  assert.equal((await estornarSeNecessario(repo, "ag1")).estornou, false);
+  assert.equal(b.pacoteRestante, 3);
+});
+
+test("estornar duas vezes (duplo clique / nova tentativa) NÃO devolve em dobro", async () => {
+  const { b, repo } = criarBanco();
+  await concluirComandaGravando(repo, dados(1), "PIX");
+  await estornarSeNecessario(repo, "ag1");            // status continua CONCLUIDO no banco (ex.: falhou o passo seguinte)
+  await estornarSeNecessario(repo, "ag1");            // nova tentativa: chama o estorno de novo, que nada devolve
+  assert.equal(b.saldo, 5); assert.equal(b.movimentacoes.filter((m) => m.tipo === "ENTRADA").length, 1);
+});
+
+test("duas tentativas de reabrir AO MESMO TEMPO devolvem uma vez só", async () => {
+  const { b, repo } = criarBanco();
+  await concluirComandaGravando(repo, dados(1), "PIX");
+  await Promise.all([estornarSeNecessario(repo, "ag1"), estornarSeNecessario(repo, "ag1")]);
+  assert.equal(b.saldo, 5);
+});
+
+test("falha ao VERIFICAR o que estornar => erro claro, nada estornado (o status não deve mudar)", async () => {
+  const { b, repo } = criarBanco({ falhaNaVerificacaoDoEstorno: true });
+  await concluirComandaGravando(repo, dados(1), "PIX");
+  await assert.rejects(estornarSeNecessario(repo, "ag1"), (e) => e instanceof ErroComanda && e.etapa === "verificar_estorno" && /connection reset/.test(e.message) && /Nada foi alterado/.test(e.message));
+  assert.equal(b.chamadas.estornar, 0); assert.equal(b.saldo, 4);
+});
+
+test("falha NO estorno => erro claro; estoque e status intactos; reabrir/cancelar/excluir não devem prosseguir", async () => {
+  const { b, repo } = criarBanco({ falhaNoEstorno: true });
+  await concluirComandaGravando(repo, dados(1), "PIX");
+  await assert.rejects(estornarSeNecessario(repo, "ag1"), (e) => e instanceof ErroComanda && e.etapa === "estornar" && /Acesso negado/.test(e.message) && /status continua o mesmo/.test(e.message));
+  assert.equal(b.saldo, 4); assert.equal(b.status, "CONCLUIDO"); assert.equal(b.produtos[0].estoque_baixado, true);
+});
+
+test("sequência completa: concluir, reabrir, cancelar => o estoque volta a 5 uma vez e o cancelamento não devolve de novo", async () => {
+  const { b, repo } = criarBanco();
+  await concluirComandaGravando(repo, dados(1), "PIX");
+  await estornarSeNecessario(repo, "ag1"); reabrirNoBanco(b);     // reabrir
+  assert.deepEqual(await estornarSeNecessario(repo, "ag1"), { estornou: false }); // cancelar: nada mais a devolver
+  b.status = "CANCELADO";
+  assert.equal(b.saldo, 5); assert.equal(b.movimentacoes.filter((m) => m.tipo === "ENTRADA").length, 1);
 });
