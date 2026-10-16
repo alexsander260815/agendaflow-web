@@ -49,6 +49,52 @@ export function mensagemDeErro(e: unknown, padrao = "Erro desconhecido."): strin
   return padrao;
 }
 
+/** Linha pronta para o INSERT em agendamento_produtos: TODAS as colunas obrigatórias presentes e com valor (nunca undefined/null). */
+export interface LinhaProdutoComanda {
+  id: string;
+  salao_id: string;
+  agendamento_id: string;
+  produto_id: string;
+  nome_produto: string;
+  preco_unitario: number;
+  quantidade: number;
+  estoque_baixado: false;
+  criado_em: string;
+}
+
+/**
+ * Monta as linhas do INSERT em lote de agendamento_produtos.
+ *
+ * Defeito encontrado no Preview (16/10/2026): o código antigo fazia `{ ...produto, id, ... }` e `produto` trazia a chave
+ * `criado_em: undefined` (linha recém-adicionada, ainda sem data). O supabase-js monta o parâmetro `columns` com as CHAVES do objeto
+ * (inclusive as `undefined`) e, em INSERT em lote, trata coluna listada mas ausente no JSON como NULL — ignorando o DEFAULT now() da
+ * coluna. Resultado: `null value in column "criado_em" ... violates not-null constraint`. Aqui `criado_em` sempre recebe uma data
+ * ISO válida (a da própria linha, se tiver; senão "agora"), e nenhuma coluna obrigatória fica sem valor.
+ */
+export function montarLinhasProdutos(
+  agendamentoId: string,
+  salaoId: string,
+  produtos: NovoProdutoComanda[],
+  novoId: () => string,
+  agora: Date = new Date()
+): LinhaProdutoComanda[] {
+  return produtos.map((p, i) => {
+    const doItem = p.criado_em && !Number.isNaN(Date.parse(p.criado_em)) ? new Date(p.criado_em).toISOString() : null;
+    return {
+      id: novoId(),
+      salao_id: salaoId,
+      agendamento_id: agendamentoId,
+      produto_id: p.produto_id,
+      nome_produto: p.nome_produto,
+      preco_unitario: Number(p.preco_unitario),
+      quantidade: Number(p.quantidade),
+      estoque_baixado: false as const,
+      // +i ms mantém a ordem das linhas (a tela lista por criado_em) mesmo gravando todas no mesmo instante
+      criado_em: doItem ?? new Date(agora.getTime() + i).toISOString(),
+    };
+  });
+}
+
 function somaPorProduto(linhas: { produto_id: string; quantidade: number }[]): Map<string, number> {
   const mapa = new Map<string, number>();
   for (const l of linhas) mapa.set(l.produto_id, (mapa.get(l.produto_id) ?? 0) + Number(l.quantidade));
@@ -73,7 +119,8 @@ export async function gravarItensEProdutos(repo: RepositorioComanda, dados: Dado
       nome_produto,
       preco_unitario,
       quantidade,
-      criado_em,
+      // só leva a data se a linha já tiver uma (nunca uma chave com valor undefined)
+      ...(criado_em ? { criado_em } : {}),
     }));
   try {
     await repo.salvarProdutos(dados.agendamentoId, dados.salaoId, novos);

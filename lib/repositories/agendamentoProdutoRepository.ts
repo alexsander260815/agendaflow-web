@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { ProdutoComanda } from "@/lib/types";
+import { montarLinhasProdutos } from "@/lib/comandaFluxo";
 
 export async function listarProdutosDaComanda(agendamentoId: string): Promise<ProdutoComanda[]> {
   const { data, error } = await supabase
@@ -24,15 +25,11 @@ export async function salvarProdutosDaComanda(
   if (erroDelete) throw erroDelete;
 
   if (!produtos.length) return;
-  const { error } = await supabase.from("agendamento_produtos").insert(
-    produtos.map((produto) => ({
-      ...produto,
-      id: crypto.randomUUID(),
-      salao_id: salaoId,
-      agendamento_id: agendamentoId,
-      estoque_baixado: false,
-    }))
-  );
+  // Linhas com TODAS as colunas obrigatórias preenchidas (inclusive criado_em). `defaultToNull: false` é uma segunda proteção:
+  // no INSERT em lote o supabase-js, por padrão, grava NULL em coluna ausente em vez de usar o DEFAULT da coluna.
+  const { error } = await supabase
+    .from("agendamento_produtos")
+    .insert(montarLinhasProdutos(agendamentoId, salaoId, produtos, () => crypto.randomUUID()), { defaultToNull: false });
   if (error) throw error;
 }
 

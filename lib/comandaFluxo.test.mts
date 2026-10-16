@@ -6,7 +6,7 @@
 // Rodar:  node --test lib/comandaFluxo.test.mts
 import test from "node:test";
 import assert from "node:assert/strict";
-import { concluirComandaGravando, gravarItensEProdutos, mensagemDeErro, ErroComanda, type RepositorioComanda, type DadosComanda } from "./comandaFluxo.ts";
+import { concluirComandaGravando, gravarItensEProdutos, mensagemDeErro, montarLinhasProdutos, ErroComanda, type RepositorioComanda, type DadosComanda } from "./comandaFluxo.ts";
 
 type Linha = { id: string; salao_id: string; agendamento_id: string; produto_id: string; nome_produto: string; preco_unitario: number; quantidade: number; estoque_baixado: boolean };
 type Item = { id: string; salao_id: string; agendamento_id: string; servico_id: string; nome_servico: string; preco: number; cliente_pacote_id: string | null; pacote_descontado: boolean; comissao_fechada: boolean };
@@ -167,4 +167,80 @@ test("mensagemDeErro entende erro do Supabase (objeto), Error e texto", () => {
   assert.equal(mensagemDeErro(new Error("x")), "x");
   assert.equal(mensagemDeErro("texto"), "texto");
   assert.equal(mensagemDeErro(null, "padrão"), "padrão");
+});
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// INSERT em lote de agendamento_produtos: reproduz o comportamento real do supabase-js + PostgREST que causou
+//   null value in column "criado_em" of relation "agendamento_produtos" violates not-null constraint   (Preview, 16/10/2026)
+// supabase-js monta `columns` com as CHAVES de todos os objetos (inclusive as de valor undefined); com defaultToNull=true (padrão)
+// o PostgREST grava NULL em coluna listada que não veio no JSON, ignorando o DEFAULT da coluna.
+// Esquema real: id, salao_id, agendamento_id, produto_id, nome_produto, preco_unitario, quantidade = NOT NULL sem default;
+// estoque_baixado e criado_em = NOT NULL COM default now()/false.
+const COLUNAS_OBRIGATORIAS_SEM_DEFAULT = ["id", "salao_id", "agendamento_id", "produto_id", "nome_produto", "preco_unitario", "quantidade"];
+const COLUNAS_OBRIGATORIAS_COM_DEFAULT = ["estoque_baixado", "criado_em"];
+
+function simularInsertEmLote(linhas: Record<string, unknown>[], defaultToNull = true): { erro: string | null } {
+  const colunas = new Set(linhas.flatMap((l) => Object.keys(l))); // o que o supabase-js manda em ?columns=
+  for (const l of linhas) {
+    const json = JSON.parse(JSON.stringify(l)); // undefined some do corpo JSON
+    for (const c of [...COLUNAS_OBRIGATORIAS_SEM_DEFAULT, ...COLUNAS_OBRIGATORIAS_COM_DEFAULT]) {
+      const veio = Object.prototype.hasOwnProperty.call(json, c) && json[c] !== null;
+      if (veio) continue;
+      const listada = colunas.has(c);
+      const temDefault = COLUNAS_OBRIGATORIAS_COM_DEFAULT.includes(c);
+      if (listada && defaultToNull) return { erro: `null value in column "${c}" of relation "agendamento_produtos" violates not-null constraint` };
+      if (!temDefault) return { erro: `null value in column "${c}" of relation "agendamento_produtos" violates not-null constraint` };
+    }
+  }
+  return { erro: null };
+}
+
+const produtoDaTela = { produto_id: "p1", nome_produto: "ZZ Shampoo", preco_unitario: 0, quantidade: 1, criado_em: undefined as string | undefined };
+
+test("REPRODUZ o defeito do Preview: código antigo ({...produto} com criado_em undefined) viola NOT NULL", () => {
+  const antigo = [{ ...produtoDaTela, id: "x", salao_id: "s1", agendamento_id: "ag1", estoque_baixado: false }];
+  const r = simularInsertEmLote(antigo);
+  assert.match(r.erro ?? "", /null value in column "criado_em"/);
+});
+
+test("montarLinhasProdutos: criado_em sempre é uma data ISO válida e nenhuma coluna obrigatória fica sem valor", () => {
+  const linhas = montarLinhasProdutos("ag1", "s1", [produtoDaTela, { ...produtoDaTela, produto_id: "p2" }], (() => { let n = 0; return () => `id${++n}`; })(), new Date("2026-10-16T19:00:00Z"));
+  assert.equal(linhas.length, 2);
+  for (const l of linhas) {
+    for (const [k, v] of Object.entries(l)) assert.ok(v !== undefined && v !== null, `coluna ${k} sem valor`);
+    assert.ok(!Number.isNaN(Date.parse(l.criado_em)));
+    assert.equal(l.estoque_baixado, false);
+  }
+  assert.equal(linhas[0].criado_em, "2026-10-16T19:00:00.000Z");
+  assert.equal(linhas[1].criado_em, "2026-10-16T19:00:00.001Z"); // mantém a ordem
+  assert.deepEqual(Object.keys(linhas[0]).sort(), [...COLUNAS_OBRIGATORIAS_SEM_DEFAULT, ...COLUNAS_OBRIGATORIAS_COM_DEFAULT].sort());
+});
+
+test("o INSERT com as linhas novas é aceito (mesmo no modo padrão do supabase-js, defaultToNull=true)", () => {
+  const linhas = montarLinhasProdutos("ag1", "s1", [produtoDaTela], () => "id1");
+  assert.equal(simularInsertEmLote(linhas as unknown as Record<string, unknown>[], true).erro, null);
+  assert.equal(simularInsertEmLote(linhas as unknown as Record<string, unknown>[], false).erro, null);
+});
+
+test("criado_em já existente (linha reaproveitada) é preservado; data inválida é substituída", () => {
+  const l = montarLinhasProdutos("ag1", "s1", [{ ...produtoDaTela, criado_em: "2026-10-15T10:00:00.000Z" }, { ...produtoDaTela, criado_em: "lixo" }], () => "i", new Date("2026-10-16T19:00:00Z"));
+  assert.equal(l[0].criado_em, "2026-10-15T10:00:00.000Z");
+  assert.equal(l[1].criado_em, "2026-10-16T19:00:00.001Z");
+});
+
+test("gravarItensEProdutos não manda chave criado_em com valor undefined ao repositório", async () => {
+  const { repo } = criarBanco();
+  let recebido: Record<string, unknown>[] = [];
+  const original = repo.salvarProdutos;
+  repo.salvarProdutos = async (ag, salao, produtos) => { recebido = produtos as unknown as Record<string, unknown>[]; return original(ag, salao, produtos); };
+  await gravarItensEProdutos(repo, dados(1));
+  assert.equal(recebido.length, 1);
+  assert.ok(!("criado_em" in recebido[0]), "criado_em undefined não pode ser enviado como chave");
+});
+
+test("outros inserts em lote da comanda: agendamento_servicos traz todas as colunas obrigatórias com valor", () => {
+  const item = dados(0).itens[0];
+  for (const c of ["id", "salao_id", "agendamento_id", "servico_id", "nome_servico", "preco", "pacote_descontado", "comissao_fechada"]) {
+    assert.ok((item as unknown as Record<string, unknown>)[c] !== undefined && (item as unknown as Record<string, unknown>)[c] !== null, c);
+  }
 });
