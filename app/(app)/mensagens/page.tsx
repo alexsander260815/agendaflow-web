@@ -3,15 +3,19 @@
 import { useEffect, useState } from "react";
 import { MessageSquare, RotateCcw } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { atualizarMinhasMensagens, atualizarSalao, buscarMeuSalao, buscarPerfil } from "@/lib/repositories";
+import { atualizarMinhaMensagemSinalPix, atualizarMinhasMensagens, atualizarSalao, buscarMeuSalao, buscarPerfil } from "@/lib/repositories";
 import { Perfil, Salao } from "@/lib/types";
 import {
   mensagemPadraoCancelamento,
   mensagemPadraoConfirmacao,
   mensagemPadraoRemarcacao,
+  mensagemBaseSinalPix,
+  mensagemErroSalvarSinalPix,
   mensagemPadraoRetorno,
   montarMensagemRetorno,
+  montarMensagemSinalPix,
   substituirMarcadores,
+  validarMensagemSinalPix,
 } from "@/lib/mensagens";
 import BotaoVoltarInicio from "@/components/BotaoVoltarInicio";
 
@@ -31,6 +35,9 @@ export default function MensagensPage() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [mensagemSalvar, setMensagemSalvar] = useState<{ tipo: "sucesso" | "erro"; texto: string } | null>(null);
+  const [sinalPixTexto, setSinalPixTexto] = useState("");
+  const [salvandoSinalPix, setSalvandoSinalPix] = useState(false);
+  const [avisoSinalPix, setAvisoSinalPix] = useState<{ tipo: "sucesso" | "erro"; texto: string } | null>(null);
 
   useEffect(() => {
     if (!perfil) return;
@@ -45,6 +52,7 @@ export default function MensagensPage() {
       const [negocio, eu] = await Promise.all([buscarMeuSalao(perfil.salao_id), buscarPerfil(perfil.id)]);
       setSalao(negocio);
       setMeuPerfil(eu);
+      setSinalPixTexto(eu?.mensagem_sinal_pix ?? "");
     } finally {
       setCarregando(false);
     }
@@ -92,6 +100,28 @@ export default function MensagensPage() {
     } finally {
       setSalvando(false);
       setTimeout(() => setMensagemSalvar(null), 5000);
+    }
+  }
+
+  async function handleSalvarSinalPix() {
+    if (!meuPerfil) return;
+    setAvisoSinalPix(null);
+    const invalida = validarMensagemSinalPix(sinalPixTexto);
+    if (invalida) {
+      setAvisoSinalPix({ tipo: "erro", texto: invalida });
+      return;
+    }
+    const novo = sinalPixTexto.trim() === "" ? null : sinalPixTexto.trim();
+    setSalvandoSinalPix(true);
+    try {
+      await atualizarMinhaMensagemSinalPix(meuPerfil.id, novo);
+      setSinalPixTexto(novo ?? "");
+      setMeuPerfil((atual) => (atual ? { ...atual, mensagem_sinal_pix: novo } : atual));
+      setAvisoSinalPix({ tipo: "sucesso", texto: novo === null ? "Mensagem padrão restaurada." : "Mensagem de Sinal Pix salva." });
+    } catch (e) {
+      setAvisoSinalPix({ tipo: "erro", texto: mensagemErroSalvarSinalPix(e) });
+    } finally {
+      setSalvandoSinalPix(false);
     }
   }
 
@@ -237,6 +267,16 @@ export default function MensagensPage() {
         )
       )}
 
+      {meuPerfil && !(forcando && !souDono) && (
+        <CartaoSinalPix
+          valor={sinalPixTexto}
+          salvando={salvandoSinalPix}
+          aviso={avisoSinalPix}
+          onMudar={(v) => { setSinalPixTexto(v); setAvisoSinalPix(null); }}
+          onSalvar={handleSalvarSinalPix}
+        />
+      )}
+
       {mensagemSalvar && (
         <p className={`mt-4 text-sm ${mensagemSalvar.tipo === "sucesso" ? "text-accent" : "text-danger"}`}>
           {mensagemSalvar.texto}
@@ -281,6 +321,67 @@ function CampoMensagem({
         className="w-full rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-accent"
       />
       <p className="mt-2 whitespace-pre-line rounded-lg bg-surface-alt p-3 text-xs text-muted">{preview}</p>
+    </div>
+  );
+}
+
+// data fixa só para a pré-visualização (evita ler o relógio durante a renderização)
+const DATA_EXEMPLO_SINAL_PIX = new Date(2026, 0, 15, 14, 30).getTime();
+
+function CartaoSinalPix({
+  valor,
+  salvando,
+  aviso,
+  onMudar,
+  onSalvar,
+}: {
+  valor: string;
+  salvando: boolean;
+  aviso: { tipo: "sucesso" | "erro"; texto: string } | null;
+  onMudar: (v: string) => void;
+  onSalvar: () => void;
+}) {
+  const preview = montarMensagemSinalPix(valor.trim() === "" ? mensagemBaseSinalPix() : valor, {
+    nomeCliente: "Maria Souza",
+    valor: 30,
+    chave: "chave-pix-de-exemplo",
+    nomeBeneficiario: "Ana Souza",
+    cidade: "São Paulo",
+    dataHoraMillis: DATA_EXEMPLO_SINAL_PIX,
+    nomeProfissional: "Ana",
+    nomesServicos: "Corte Feminino",
+  });
+  return (
+    <div className="card-elevated mt-6 rounded-xl bg-surface p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-sm font-medium">Sinal Pix</p>
+        <button
+          onClick={() => onMudar(mensagemBaseSinalPix())}
+          className="flex items-center gap-1 text-xs text-muted transition-colors hover:text-accent"
+        >
+          <RotateCcw size={11} /> Usar o texto padrão como base
+        </button>
+      </div>
+      <p className="mb-2 text-xs text-muted">
+        Mensagem enviada ao cliente com a cobrança do sinal. Vale só para os seus atendimentos. Deixe em branco para usar o texto padrão.
+        Use {"{valor}"} e {"{chave}"} (obrigatórios) e, se quiser, {"{nome}"}, {"{beneficiario}"}, {"{cidade}"}, {"{data}"}, {"{hora}"}, {"{servicos}"}, {"{profissional}"}.
+      </p>
+      <textarea
+        value={valor}
+        onChange={(e) => onMudar(e.target.value)}
+        placeholder={mensagemBaseSinalPix()}
+        rows={5}
+        className="w-full rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+      />
+      <p className="mt-2 whitespace-pre-line rounded-lg bg-surface-alt p-3 text-xs text-muted">{preview}</p>
+      {aviso && <p className={`mt-3 text-sm ${aviso.tipo === "sucesso" ? "text-accent" : "text-danger"}`}>{aviso.texto}</p>}
+      <button
+        onClick={onSalvar}
+        disabled={salvando}
+        className="mt-3 w-full rounded-xl bg-accent px-4 py-3.5 font-medium text-accent-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
+      >
+        {salvando ? "Salvando..." : "Salvar mensagem de Sinal Pix"}
+      </button>
     </div>
   );
 }

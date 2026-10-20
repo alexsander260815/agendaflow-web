@@ -63,7 +63,7 @@ import {
 } from "@/lib/comandaFluxo";
 import { abrirWhatsApp } from "@/lib/whatsapp";
 import { montarPixCopiaECola } from "@/lib/pix";
-import { mensagemEfetiva, mensagemPadraoConfirmacao, substituirMarcadores } from "@/lib/mensagens";
+import { mensagemEfetiva, mensagemPadraoConfirmacao, mensagemSinalPixPersonalizada, montarMensagemSinalPix, substituirMarcadores } from "@/lib/mensagens";
 import Avatar from "@/components/Avatar";
 
 const inputClass =
@@ -239,10 +239,23 @@ function AgendamentoFormInner() {
         identificador: agendamentoAtual.id,
       });
       const primeiroNome = clienteSelecionado.nome.trim().split(" ")[0] ?? clienteSelecionado.nome;
+      // Modelo personalizado do profissional do agendamento (se houver); senão o texto de sempre, com o Pix copia e cola.
+      const modelo = mensagemSinalPixPersonalizada(salao, profissional);
       const mensagem =
-        `Oi ${primeiroNome}! Pra confirmar seu horário, falta só o sinal de ${formatarMoeda(salao.sinal_valor)} via Pix.\n\n` +
-        `Copia e cola o código abaixo no app do seu banco:\n\n${copiaECola}\n\n` +
-        `Qualquer dúvida é só chamar por aqui 🙂`;
+        modelo !== null
+          ? montarMensagemSinalPix(modelo, {
+              nomeCliente: clienteSelecionado.nome,
+              valor: salao.sinal_valor,
+              chave,
+              nomeBeneficiario: nome,
+              cidade,
+              dataHoraMillis: converterIsoParaMillis(agendamentoAtual.data_hora),
+              nomeProfissional: profissional?.nome ?? "",
+              nomesServicos: itensComanda.map((i) => i.servico.nome).join(", "),
+            })
+          : `Oi ${primeiroNome}! Pra confirmar seu horário, falta só o sinal de ${formatarMoeda(salao.sinal_valor)} via Pix.\n\n` +
+            `Copia e cola o código abaixo no app do seu banco:\n\n${copiaECola}\n\n` +
+            `Qualquer dúvida é só chamar por aqui 🙂`;
       abrirWhatsApp(clienteSelecionado.telefone, mensagem);
     } catch (e) {
       setMensagemSinal(e instanceof Error ? `Erro ao gerar a cobrança: ${e.message}` : "Erro ao gerar a cobrança.");

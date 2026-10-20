@@ -56,6 +56,16 @@ export async function atualizarMinhasMensagens(
   if (error) throw error;
 }
 
+/**
+ * Grava SÓ a mensagem de Sinal Pix da própria pessoa (null = voltar ao texto padrão), sem tocar nas outras mensagens. Confere que a linha foi atualizada:
+ * se a política de segurança filtrar a linha (ex.: outra pessoa), o servidor responde 0 linhas sem erro, e isso conta como NÃO salvo.
+ */
+export async function atualizarMinhaMensagemSinalPix(perfilId: string, mensagem: string | null): Promise<void> {
+  const { data, error } = await supabase.from('perfis').update({ mensagem_sinal_pix: mensagem }).eq('id', perfilId).select('id');
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error('A mensagem não foi salva (0 linhas atualizadas).');
+}
+
 export async function atualizarPixPerfil(
   perfilId: string,
   chavePix: string,

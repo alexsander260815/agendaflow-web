@@ -19,6 +19,7 @@ export interface Perfil {
   mensagem_remarcacao?: string | null;
   mensagem_cancelamento?: string | null;
   mensagem_retorno?: string | null;
+  mensagem_sinal_pix?: string | null;
 }
 
 export interface Papel {
